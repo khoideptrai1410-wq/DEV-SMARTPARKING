@@ -911,13 +911,44 @@ def _prediction_for_existing_ticket(
 # REQUEST HELPERS
 # ============================================================
 
+def _decode_base64_image(value):
+    """Giải mã ảnh base64/data URL từ camera web."""
+    if not value:
+        return None
+
+    try:
+        text = str(value).strip()
+        if "," in text and text.lower().startswith("data:"):
+            text = text.split(",", 1)[1]
+
+        return base64.b64decode(text, validate=True)
+    except Exception:
+        return None
+
+
 def _read_upload():
-    file = request.files.get(
-        "image"
-    )
+    """Đọc ảnh từ multipart hoặc JSON/base64 để gate tự động không phụ thuộc kiểu request."""
+    file = request.files.get("image")
 
     if file and file.filename:
-        return file.read()
+        data = file.read()
+        if data:
+            return data
+
+    body = request.json if request.is_json else {}
+    body = body if isinstance(body, dict) else {}
+
+    for key in (
+        "image_base64",
+        "imageBase64",
+        "frame_base64",
+        "frameBase64",
+        "image",
+        "frame",
+    ):
+        data = _decode_base64_image(body.get(key))
+        if data:
+            return data
 
     return None
 
@@ -1305,10 +1336,44 @@ def scan_plate():
     "/ticket-image/<path:filename>"
 )
 def ticket_image(filename):
-    return send_from_directory(
-        TICKET_IMAGE_DIR,
-        filename,
-    )
+    """Phục vụ ảnh vé từ path lưu trong SQL Server."""
+    try:
+        relative = str(filename).replace("\\", "/").lstrip("/")
+        prefix = "ticket_images/"
+        if relative.lower().startswith(prefix):
+            relative = relative[len(prefix):]
+
+        safe_name = Path(relative).name
+        if not safe_name:
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "Tên ảnh không hợp lệ.",
+                }
+            ), 400
+
+        image_path = TICKET_IMAGE_DIR / safe_name
+
+        if not image_path.is_file():
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "Không tìm thấy ảnh vé.",
+                    "filename": safe_name,
+                }
+            ), 404
+
+        return send_from_directory(
+            TICKET_IMAGE_DIR,
+            safe_name,
+        )
+    except Exception as exc:
+        return jsonify(
+            {
+                "status": "error",
+                "message": str(exc),
+            }
+        ), 500
 
 
 # ============================================================
@@ -1440,7 +1505,7 @@ def gate_event():
             request.form.get("mode")
             or body.get("mode")
             or "entry"
-        ).lower()
+        ).strip().lower()
 
         if mode not in {
             "entry",
@@ -1456,25 +1521,19 @@ def gate_event():
                 }
             ), 400
 
-        uploaded = request.files.get(
-            "image"
-        )
+        image_bytes = _read_upload()
 
-        if (
-            not uploaded
-            or not uploaded.filename
-        ):
+        if not image_bytes:
             return jsonify(
                 {
                     "status": "error",
                     "message": (
-                        "Không có ảnh "
-                        "từ camera."
+                        "Không có ảnh từ camera. "
+                        "Gửi multipart field 'image' "
+                        "hoặc JSON/base64 image."
                     ),
                 }
             ), 400
-
-        image_bytes = uploaded.read()
 
         ocr = recognize_plate(
             image_bytes
