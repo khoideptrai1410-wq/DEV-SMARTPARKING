@@ -21,3 +21,7 @@ models/classification/*.pkl
 # OS
 .DS_Store
 Thumbs.db
+# .NET build files
+Backend/**/bin/
+Backend/**/obj/
+Backend/.vs/
