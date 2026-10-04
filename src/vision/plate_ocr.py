@@ -295,7 +295,6 @@ class PlateRecognizer:
         return best_items, "tesseract" if best_items else "none"
 
     def recognize(self, source: ImageInput) -> dict[str, Any]:
-self, source: ImageInput) -> dict[str, Any]:
         image = resize_max(load_image(source), 1600)
         regions = find_plate_regions(image)
         engine = "none"
