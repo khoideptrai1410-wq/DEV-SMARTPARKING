@@ -1711,9 +1711,7 @@ def gate_event():
             # ML PREDICTION
             # ------------------------------------------------
 
-            entry_time = datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            entry_time = datetime.now().isoformat(timespec="seconds")
 
             prediction = run_prediction(
                 {
@@ -2151,9 +2149,7 @@ def checkin():
 
         entry_time = (
             body.get("entry_time")
-            or datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            or datetime.now().isoformat(timespec="seconds")
         )
 
         payload = {
@@ -2391,9 +2387,7 @@ def checkout():
 
         exit_time = (
             body.get("exit_time")
-            or datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            or datetime.now().isoformat(timespec="seconds")
         )
 
         # Nếu không OCR được biển lúc ra,
