@@ -467,9 +467,9 @@ def _status_name(status_code):
     )
 
 
-    def _normalize_backend_ticket(ticket):
-        if not isinstance(ticket, dict):
-            return None
+def _normalize_backend_ticket(ticket):
+    if not isinstance(ticket, dict):
+        return None
 
     ticket_id = ticket.get(
         "ticketId",
@@ -997,8 +997,7 @@ def _plate_from_request(
     image_bytes,
 ):
     typed = normalize_plate(
-        _typed_plate()
-    )
+        _typed_plate()    )
 
     ocr = None
 
@@ -1998,7 +1997,6 @@ def list_scans():
             "scans": _scan_history,
         }
     )
-
 
 # ============================================================
 # MANUAL CHECK-IN
