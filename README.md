@@ -35,7 +35,7 @@ Hệ thống bãi đỗ xe thông minh kết hợp Camera, OCR nhận diện bi�
 
 React là giao diện mới. Python phụ trách camera, xử lý ảnh và OCR. .NET là Backend/API và là lớp truy cập SQL Server thông qua Dapper.
 
-## 2. Công nghệ cần cài
+## 2. Công nghệ cần cài đặt
 
 ### Bắt buộc
 
@@ -43,15 +43,12 @@ React là giao diện mới. Python phụ trách camera, xử lý ảnh và OCR.
 - Python 3.x
 - Node.js + npm
 - .NET 10 SDK
-- SQL Server
 - SQL Server Management Studio (SSMS)
-- Google Chrome hoặc Microsoft Edge
-- Webcam nếu muốn chạy nhận diện trực tiếp
+- Lưu Ý: Thiết bị cần phải có camera để quét nhận diện biển số xe
 
 ### Công nghệ trong project
 
 ### Python
-
 - Flask
 - OpenCV
 - NumPy
@@ -65,8 +62,7 @@ React là giao diện mới. Python phụ trách camera, xử lý ảnh và OCR.
 - RapidOCR
 - ONNX Runtime
 - Tesseract OCR qua `pytesseract`
-
-Danh sách package Python nằm trong `requirements.txt`.
+=> Danh sách package Python nằm trong `requirements.txt`.
 
 ### Backend
 
@@ -78,7 +74,6 @@ Danh sách package Python nằm trong `requirements.txt`.
 - Swagger / OpenAPI
 
 ### Frontend
-
 - React 19
 - TypeScript
 - Vite
@@ -86,7 +81,6 @@ Danh sách package Python nằm trong `requirements.txt`.
 - Oxlint
 
 ## 3. Cấu trúc project
-
 ```
 DEV-SMARTPARKING/
 │
@@ -137,7 +131,6 @@ cd DEV-SMARTPARKING
 ```
 
 ### Bước 2: Cài Python package
-
 Kiểm tra Python:
 
 ```powershell
@@ -145,13 +138,11 @@ python --version
 ```
 
 Cài toàn bộ package:
-
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
 ### Bước 3: Cài Frontend package
-
 ```powershell
 cd frontend
 npm install
@@ -454,10 +445,8 @@ SELECT * FROM dbo.Tickets ORDER BY TicketId DESC;
 ```
 
 ## 12. Trạng thái project
-
 ### Đã có
 
-- Camera web
 - Nhận diện biển số
 - OCR
 - Tạo vé điện tử
@@ -484,9 +473,3 @@ SELECT * FROM dbo.Tickets ORDER BY TicketId DESC;
 File `Backend/src/Smartparking.Api/appsettings.json` hiện chứa cấu hình JWT và chuỗi kết nối dùng cho môi trường local/demo.
 
 Không dùng nguyên cấu hình này cho môi trường production. Hãy thay JWT secret và chuyển các thông tin nhạy cảm sang biến môi trường hoặc secret manager khi triển khai thực tế.
-
-## 14. Repository
-
-```
-https://github.com/khoideptrai1410-wq/DEV-SMARTPARKING
-```
