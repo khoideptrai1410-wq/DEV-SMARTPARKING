@@ -123,14 +123,7 @@ DEV-SMARTPARKING/
 
 Hướng dẫn dưới đây dùng Windows PowerShell.
 
-### Bước 1: Clone project
-
-```powershell
-git clone https://github.com/khoideptrai1410-wq/DEV-SMARTPARKING.git
-cd DEV-SMARTPARKING
-```
-
-### Bước 2: Cài Python package
+### Bước 1: Cài Python package
 Kiểm tra Python:
 
 ```powershell
@@ -142,14 +135,14 @@ Cài toàn bộ package:
 python -m pip install -r requirements.txt
 ```
 
-### Bước 3: Cài Frontend package
+### Bước 2: Cài Frontend package
 ```powershell
 cd frontend
 npm install
 cd ..
 ```
 
-### Bước 4: Kiểm tra .NET
+### Bước 3: Kiểm tra .NET
 
 ```powershell
 dotnet --version
