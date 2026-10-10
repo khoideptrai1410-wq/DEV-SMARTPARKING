@@ -382,8 +382,8 @@ function App() {
 
             try {
               const eventResult = await submitGateEvent(gateMode, image, frameResult)
-              if (cancelled) return
 
+              // Không bỏ kết quả nếu người dùng chuyển trang/tắt camera trong lúc API đang ghi vé.
               setLastGateResult(eventResult)
               setRefreshKey((key) => key + 1)
 
@@ -550,7 +550,7 @@ function App() {
               {gateError && <div className="feedback feedback-error" role="alert">{gateError}</div>}
               <div className="gate-submit">
                 <label className="field-label" htmlFor="gate-mode">Thao tác</label>
-                <select id="gate-mode" className="form-input" value={gateMode} onChange={(event) => setGateMode(event.target.value as GateMode)}>
+                <select id="gate-mode" className="form-input" value={gateMode} disabled={cameraBusy} onChange={(event) => setGateMode(event.target.value as GateMode)}>
                   <option value="entry">Ghi nhận xe vào</option><option value="exit">Xử lý xe ra</option>
                 </select>
                 <p className="gate-note">Sau khi camera đọc đúng cùng một biển số trong 3 frame liên tiếp, hệ thống tự tạo vé khi xe vào hoặc tự cập nhật vé khi xe ra. Không cần bấm xác nhận.</p>
