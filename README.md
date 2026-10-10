@@ -207,63 +207,50 @@ ORDER BY TicketId DESC;
 
 ## 6. Chạy chương trình
 
-Nên mở 4 cửa sổ PowerShell.
+Mở các cửa sổ PowerShell riêng. Muốn dùng đầy đủ dashboard, camera/OCR và lưu vé, cần chạy SQL Server, .NET API, Python và React.
 
 ### PowerShell 1 - SQL Server
 
-Mở SQL Server/SSMS và bảo đảm database `SmartParking` đang hoạt động.
+Mở SQL Server/SSMS và bảo đảm database `SmartParking` cùng bảng `dbo.Tickets` đã được tạo.
 
 ### PowerShell 2 - Backend .NET
+
+Từ thư mục gốc dự án:
 
 ```powershell
 cd Backend
 dotnet restore
 dotnet build
-dotnet run --project src\Smartparking.Api\Smartparking.Api.csproj
+dotnet run --launch-profile http --project src\Smartparking.Api\Smartparking.Api.csproj
 ```
 
-Backend mặc định chạy tại:
+Backend dùng địa chỉ `http://localhost:5049`. Swagger ở `http://localhost:5049/swagger`.
 
-```text
-http://localhost:5049
-```
+### PowerShell 3 - Python OCR/API
 
-Swagger:
-
-```text
-http://localhost:5049/swagger
-```
-
-### PowerShell 3 - Python Camera/OCR
-
-Mở từ thư mục gốc project:
+Từ thư mục gốc dự án:
 
 ```powershell
 python app/app.py
 ```
 
-Flask:
-
-```text
-http://127.0.0.1:5000
-```
-
-Chrome/Edge cần được cấp quyền Camera.
+Python chạy tại `http://127.0.0.1:5000`. Flask không còn phục vụ trang HTML; các endpoint OCR/API được giữ nguyên. Truy cập các đường dẫn trang cũ sẽ chuyển về React.
 
 ### PowerShell 4 - React Frontend
 
 ```powershell
 cd frontend
+npm install
 npm run dev
 ```
 
-Vite sẽ hiển thị địa chỉ local, thông thường:
+Mở địa chỉ Vite hiển thị trong Terminal, thường là `http://localhost:5173`.
 
-```text
-http://localhost:5173
-```
+Ở màn hình đăng nhập, tài khoản demo hiện được cấu hình trong `AuthController.cs`:
+- Username: `admin`
+- Password: `123456`
 
-Mở địa chỉ đó để xem giao diện React.
+React dùng proxy Vite để gọi .NET và Python trong môi trường phát triển. Nếu chỉ thử đăng nhập và xem danh sách vé, cần SQL Server, backend .NET và React; nếu muốn dùng camera/OCR thì chạy thêm Python.
 
 ## 7. Luồng hệ thống
 
@@ -356,54 +343,43 @@ Các endpoint chính hiện có:
 
 ## 9. Camera và OCR
 
-Camera web dùng `getUserMedia()` của trình duyệt.
+Trang Cổng vào / ra trong React dùng `getUserMedia()` của trình duyệt để mở webcam khi người vận hành bấm nút. Người vận hành chụp ảnh, xem kết quả nhận diện sơ bộ rồi xác nhận thao tác xe vào hoặc xe ra.
 
-Hệ thống:
+Luồng xử lý:
 
-- tự lấy frame định kỳ
-- tìm vùng nghi là biển số
-- crop biển số
-- OCR bằng RapidOCR
-- có Tesseract làm fallback
-- chuẩn hóa một số lỗi nhận dạng ký tự
-- yêu cầu biển số ổn định qua nhiều frame trước khi chốt sự kiện
-- chống tạo vé trùng khi xe đã có vé đang gửi
+- React gửi ảnh đến Python `/api/preview-plate` để nhận diện sơ bộ.
+- Khi xác nhận, React gửi ảnh và chế độ vào/ra đến Python `/api/gate-event`.
+- Python chuẩn hóa biển số, kiểm tra vé hiện có, xử lý logic OCR/ML và gọi .NET API.
+- .NET ghi hoặc cập nhật vé trong SQL Server.
+- React tải lại danh sách vé từ backend sau khi gửi sự kiện.
 
 Nếu camera không mở:
-
 1. Cho phép Camera trong Chrome/Edge.
-2. Dùng `http://localhost:5000` hoặc `http://127.0.0.1:5000`.
+2. Mở giao diện React tại địa chỉ Vite, thường là `http://localhost:5173`; không cần dùng giao diện HTML Flask cũ.
 3. Đóng Camera, Zoom, Teams hoặc ứng dụng khác đang chiếm webcam.
-4. Tải lại trang.
+4. Tải lại trang và bấm mở camera lại.
+
+Lưu ý: đây là thao tác chụp và xác nhận thủ công trong React, không phải hệ thống tự động mở barrier vật lý. Tính năng tự động đọc liên tục nhiều frame có thể được tích hợp tiếp sau khi kiểm thử luồng này.
 
 ## 10. Frontend hiện tại
 
-Frontend nằm trong:
+Giao diện chính nằm trong `frontend/`; giao diện HTML Flask cũ trong `app/templates/` cùng CSS/JavaScript cũ trong `app/static/` đã được gỡ khỏi nhánh hiện tại. Lịch sử Git vẫn giữ các commit trước đó để có thể khôi phục khi cần.
 
-```text
-frontend/
-```
+Các phần đã được nối trong mã nguồn:
+- Đăng nhập qua `POST /api/Auth/login`, nhận JWT và giữ token trong `sessionStorage`.
+- Đọc danh sách vé qua `GET /api/Tickets`; các số liệu dashboard tính từ dữ liệu backend trả về.
+- Tìm kiếm biển số hoặc mã vé trong danh sách xe đang gửi và lịch sử.
+- Camera React gửi ảnh qua Python OCR; Python tiếp tục gọi .NET API để tạo vé hoặc cập nhật vé ra.
+- Vite proxy các đường dẫn `/backend-api` đến .NET và `/python-api` đến Flask để tránh phải cấu hình CORS cho local.
 
-Chạy:
+Build frontend:
 
 ```powershell
 cd frontend
-npm run dev
-```
-
-Build production:
-
-```powershell
 npm run build
 ```
 
-Kiểm tra lint:
-
-```powershell
-npm run lint
-```
-
-Frontend React hiện là giao diện mới của hệ thống. Việc kết nối đầy đủ React với camera/OCR và toàn bộ API Backend là phần tích hợp tiếp theo của project.
+Chưa nên xem là kiểm thử end-to-end hoàn tất cho đến khi chạy thực tế với SQL Server, .NET, Python và webcam trên máy của bạn.
 
 ## 11. Kiểm tra nhanh sau khi cài
 
@@ -438,28 +414,23 @@ SELECT * FROM dbo.Tickets ORDER BY TicketId DESC;
 ```
 
 ## 12. Trạng thái project
-### Đã có
 
-- Nhận diện biển số
-- OCR
-- Tạo vé điện tử
-- Đóng vé khi xe ra
-- Lưu dữ liệu ticket
-- Lưu ảnh vào/ra
-- Backend .NET 10
-- JWT authentication
-- Dapper
-- SQL Server
-- Swagger
-- React + TypeScript + Tailwind
-- Dashboard React
+### Đã có trong mã nguồn
+- Python OCR và API xử lý sự kiện cổng vào/ra.
+- .NET 10 Web API, JWT, Dapper và SQL Server.
+- React đăng nhập bằng JWT.
+- Dashboard, danh sách vé đang gửi và lịch sử lấy từ API.
+- Tìm kiếm biển số/mã vé trên dữ liệu đã tải.
+- Trang React mở webcam, gửi ảnh đến Python để nhận diện, sau đó yêu cầu Python/.NET xử lý vé.
+- Các template HTML Flask cũ và tài nguyên CSS/JavaScript đi kèm đã được gỡ khỏi nhánh hiện tại.
 
-### Đang tiếp tục hoàn thiện
-
-- Kết nối React với API Backend
-- Kết nối giao diện React với camera/OCR Python
-- Hoàn thiện các màn hình quản lý trên React
-- Đồng bộ dữ liệu thật giữa Dashboard React và SQL Server
+### Cần kiểm tra tiếp trên máy local
+- Chạy `npm run build` để kiểm tra TypeScript và build.
+- Đăng nhập React khi .NET API và SQL Server đang chạy.
+- Thử lấy danh sách vé hiện có trong SQL Server.
+- Thử camera/OCR với ảnh biển số rõ; xác nhận xe vào và xác nhận xe ra.
+- Kiểm tra trường hợp backend hoặc SQL Server tắt để bảo đảm giao diện hiển thị lỗi dễ hiểu.
+- Hoàn thiện xác thực tài khoản thực tế; thông tin đăng nhập hiện tại là tài khoản demo cố định trong mã nguồn.
 
 ## 13. Lưu ý bảo mật
 
