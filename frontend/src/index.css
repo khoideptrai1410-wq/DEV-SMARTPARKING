@@ -408,3 +408,7 @@ button:focus-visible, input:focus-visible {
   .topbar-actions { align-items: flex-start; flex-direction: column; }
   .profile { padding-left: 0; border-left: 0; }
 }
+
+.refresh-button { min-height: 31px; padding: 6px 9px; border: 1px solid #dcd4e8; border-radius: 5px; color: #61507f; background: #fff; font-size: 10px; white-space: nowrap; }
+.refresh-button:hover { background: #f8f5fb; }
+.refresh-button:disabled { opacity: .55; cursor: wait; }
