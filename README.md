@@ -341,23 +341,24 @@ Các endpoint chính hiện có:
 
 ## 9. Camera và OCR
 
-Trang Cổng vào / ra trong React dùng `getUserMedia()` của trình duyệt để mở webcam khi người vận hành bấm nút. Người vận hành chụp ảnh, xem kết quả nhận diện sơ bộ rồi xác nhận thao tác xe vào hoặc xe ra.
+Trang Cổng vào / ra trong React sử dụng `getUserMedia()` để mở webcam. Sau khi bấm **Mở camera & bắt đầu tự quét**, ứng dụng tự lấy frame từ video và gọi Python OCR liên tục.
 
-Luồng xử lý:
+Luồng xử lý tự động:
 
-- React gửi ảnh đến Python `/api/preview-plate` để nhận diện sơ bộ.
-- Khi xác nhận, React gửi ảnh và chế độ vào/ra đến Python `/api/gate-event`.
-- Python chuẩn hóa biển số, kiểm tra vé hiện có, xử lý logic OCR/ML và gọi .NET API.
-- .NET ghi hoặc cập nhật vé trong SQL Server.
-- React tải lại danh sách vé từ backend sau khi gửi sự kiện.
+- React gửi từng frame đến Python `/api/preview-plate` để đọc biển số.
+- Chỉ khi nhận được **cùng một biển số hợp lệ trong 3 frame liên tiếp**, React mới tự gửi frame đó đến `/api/gate-event`.
+- Người vận hành chọn chế độ cổng trước khi quét: **Ghi nhận xe vào** hoặc **Xử lý xe ra**. Không cần bấm nút xác nhận sau khi nhận diện.
+- Với xe vào, Python kiểm tra vé đang mở để tránh tạo vé trùng, lưu ảnh rồi gọi .NET API tạo vé.
+- Với xe ra, Python tìm vé đang mở, tính phí/phạt và gọi .NET API cập nhật thời gian ra, ảnh ra và trạng thái.
+- React tự tải lại danh sách vé và hiển thị thẻ vé điện tử sau khi backend trả kết quả. Khi biển số vẫn nằm trong khung hình, ứng dụng khóa xử lý biển số đó để tránh gửi cùng sự kiện lặp lại; camera tiếp tục quét các xe tiếp theo.
 
 Nếu camera không mở:
 1. Cho phép Camera trong Chrome/Edge.
-2. Mở giao diện React tại địa chỉ Vite, thường là `http://localhost:5173`; không cần dùng giao diện HTML Flask cũ.
+2. Mở giao diện React tại địa chỉ Vite, thường là `http://localhost:5173`.
 3. Đóng Camera, Zoom, Teams hoặc ứng dụng khác đang chiếm webcam.
-4. Tải lại trang và bấm mở camera lại.
+4. Tải lại trang rồi bấm **Mở camera & bắt đầu tự quét**.
 
-Lưu ý: đây là thao tác chụp và xác nhận thủ công trong React, không phải hệ thống tự động mở barrier vật lý. Tính năng tự động đọc liên tục nhiều frame có thể được tích hợp tiếp sau khi kiểm thử luồng này.
+Lưu ý: đây là tự động nhận diện và ghi nhận vé bằng camera trình duyệt sau khi người vận hành bật camera và chọn chiều cổng; nó chưa tự điều khiển barrier vật lý.
 
 ## 10. Frontend hiện tại
 
@@ -419,7 +420,8 @@ SELECT * FROM dbo.Tickets ORDER BY TicketId DESC;
 - React đăng nhập bằng JWT.
 - Dashboard, danh sách vé đang gửi và lịch sử lấy từ API.
 - Tìm kiếm biển số/mã vé trên dữ liệu đã tải.
-- Trang React mở webcam, gửi ảnh đến Python để nhận diện, sau đó yêu cầu Python/.NET xử lý vé.
+- Trang React mở webcam, tự đọc frame liên tục; khi cùng biển số hợp lệ khớp 3 frame liên tiếp, tự gửi sự kiện đến Python/.NET.
+- Vé điện tử được hiển thị từ kết quả backend và lưu trong SQL Server.
 - Các template HTML Flask cũ và tài nguyên CSS/JavaScript đi kèm đã được gỡ khỏi nhánh hiện tại.
 
 ### Cần kiểm tra tiếp trên máy local
