@@ -16,7 +16,7 @@ const menuItems: { id: MenuId; icon: string; label: string }[] = [
 
 const pageDetails: Record<MenuId, { title: string; description: string }> = {
   dashboard: { title: 'Tổng quan', description: 'Theo dõi tình hình xe vào, xe ra từ dữ liệu trên hệ thống.' },
-  gate: { title: 'Cổng vào / ra', description: 'Mở camera, kiểm tra biển số rồi xác nhận sự kiện gửi xe.' },
+  gate: { title: 'Cổng vào / ra', description: 'Camera tự quét liên tục; khi biển số khớp 3 frame liên tiếp, hệ thống tự xử lý vé điện tử.' },
   parking: { title: 'Xe đang gửi', description: 'Các vé đang mở trong cơ sở dữ liệu SmartParking.' },
   history: { title: 'Lịch sử gửi xe', description: 'Tra cứu các vé đã tạo, đã đóng hoặc đang cần kiểm tra.' },
   settings: { title: 'Kết nối hệ thống', description: 'Thông tin các dịch vụ dùng trong môi trường phát triển local.' },
@@ -173,12 +173,16 @@ function App() {
   const [gateMessage, setGateMessage] = useState('')
   const [gateError, setGateError] = useState('')
   const [preview, setPreview] = useState<PlatePreview | null>(null)
-  const [snapshot, setSnapshot] = useState<Blob | null>(null)
-  const [snapshotUrl, setSnapshotUrl] = useState('')
+  const [stableFrames, setStableFrames] = useState(0)
+  const [autoStatus, setAutoStatus] = useState('Mở camera để bắt đầu tự nhận diện.')
+  const [lastGateResult, setLastGateResult] = useState<GateEventResult | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const snapshotUrlRef = useRef('')
+  const scanBusyRef = useRef(false)
+  const stableCandidateRef = useRef({ plate: '', count: 0 })
+  const processedPlateRef = useRef('')
+  const missingFrameCountRef = useRef(0)
 
   const currentPage = pageDetails[activeMenu]
   const activeTickets = tickets.filter((ticket) => isOpenStatus(ticket.status))
@@ -233,7 +237,6 @@ function App() {
 
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach((track) => track.stop())
-    if (snapshotUrlRef.current) URL.revokeObjectURL(snapshotUrlRef.current)
   }, [])
 
   async function handleLogin(username: string, password: string) {
@@ -285,7 +288,11 @@ function App() {
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
+    stableCandidateRef.current = { plate: '', count: 0 }
+    missingFrameCountRef.current = 0
+    setStableFrames(0)
     setCameraOn(false)
+    setAutoStatus('Camera đã tắt.')
   }
 
   function takeSnapshot(): Promise<Blob> {
@@ -311,58 +318,124 @@ function App() {
     })
   }
 
-  async function handlePreview() {
-    setCameraBusy(true)
-    setGateMessage('')
-    setGateError('')
-    setPreview(null)
-    try {
-      const image = await takeSnapshot()
-      const nextUrl = URL.createObjectURL(image)
-      if (snapshotUrlRef.current) URL.revokeObjectURL(snapshotUrlRef.current)
-      snapshotUrlRef.current = nextUrl
-      setSnapshotUrl(nextUrl)
-      setSnapshot(image)
-      const result = await previewPlate(image)
-      setPreview(result)
-      if (result.valid && result.plate) {
-        setGateMessage('Đã nhận diện sơ bộ biển số ' + result.plate + '. Hãy kiểm tra trước khi ghi nhận.')
-      } else {
-        setGateError(result.message || 'Chưa nhận diện được biển số hợp lệ. Hãy thử chụp lại rõ hơn.')
-      }
-    } catch (err) {
-      setGateError(err instanceof Error ? err.message : 'Không thể nhận diện ảnh.')
-    } finally {
-      setCameraBusy(false)
-    }
-  }
+  useEffect(() => {
+    if (activeMenu !== 'gate' || !cameraOn) return
 
-  async function handleGateEvent() {
-    if (!snapshot) {
-      setGateError('Hãy chụp ảnh và kiểm tra biển số trước.')
-      return
+    let cancelled = false
+    let timeoutId: number | undefined
+
+    // Mỗi lần bật camera/chuyển chế độ, yêu cầu tích lũy lại 3 frame ổn định.
+    stableCandidateRef.current = { plate: '', count: 0 }
+    setStableFrames(0)
+    setAutoStatus('Camera đang quét. Đưa biển số vào khung hình...')
+
+    const scheduleNext = (delay = 850) => {
+      if (!cancelled) timeoutId = window.setTimeout(() => { void scanNextFrame() }, delay)
     }
 
-    setCameraBusy(true)
-    setGateMessage('')
-    setGateError('')
-    try {
-      const result: GateEventResult = await submitGateEvent(gateMode, snapshot, preview)
-      setGateMessage(result.message || 'Đã gửi sự kiện đến dịch vụ Python.')
-      if (result.event !== 'not_found' && result.event !== 'ignored') {
-        setSnapshot(null)
-        setPreview(null)
-        if (snapshotUrlRef.current) URL.revokeObjectURL(snapshotUrlRef.current)
-        snapshotUrlRef.current = ''
-        setSnapshotUrl('')
+    const scanNextFrame = async () => {
+      if (cancelled) return
+      if (scanBusyRef.current || !videoRef.current?.videoWidth) {
+        scheduleNext(350)
+        return
       }
-      setRefreshKey((key) => key + 1)
-    } catch (err) {
-      setGateError(err instanceof Error ? err.message : 'Không thể xử lý sự kiện xe.')
-    } finally {
-      setCameraBusy(false)
+
+      scanBusyRef.current = true
+      try {
+        const image = await takeSnapshot()
+        const frameResult = await previewPlate(image)
+        if (cancelled) return
+
+        setPreview(frameResult)
+        const plate = frameResult.valid && frameResult.plate
+          ? frameResult.plate.toUpperCase().replace(/[^A-Z0-9]/g, '')
+          : ''
+
+        if (!plate) {
+          stableCandidateRef.current = { plate: '', count: 0 }
+          setStableFrames(0)
+          missingFrameCountRef.current += 1
+          if (missingFrameCountRef.current >= 5) {
+            // Mở khóa khi biển số đã rời khung hình một lúc,
+            // để không tạo/đóng lại vé nhiều lần trong lúc xe đứng yên.
+            processedPlateRef.current = ''
+          }
+          setAutoStatus(frameResult.message || 'Chưa thấy biển số hợp lệ. Camera tiếp tục quét...')
+        } else {
+          missingFrameCountRef.current = 0
+          const previous = stableCandidateRef.current
+          const count = previous.plate === plate ? previous.count + 1 : 1
+          stableCandidateRef.current = { plate, count }
+          setStableFrames(Math.min(count, 3))
+
+          if (count < 3) {
+            setAutoStatus(`Đã nhận ${plate}; đang kiểm tra độ ổn định ${count}/3 frame...`)
+          } else if (processedPlateRef.current === plate) {
+            setAutoStatus(`Biển số ${plate} đã được xử lý. Chờ xe rời vùng camera để quét lượt tiếp theo.`)
+          } else {
+            // Đánh dấu trước khi gọi API để tránh gửi cùng một biển số song song.
+            processedPlateRef.current = plate
+            setCameraBusy(true)
+            setGateMessage('')
+            setGateError('')
+            setAutoStatus(`Đã xác nhận ${plate} qua 3 frame. Đang xử lý vé điện tử...`)
+
+            try {
+              const eventResult = await submitGateEvent(gateMode, image, frameResult)
+              if (cancelled) return
+
+              setLastGateResult(eventResult)
+              setRefreshKey((key) => key + 1)
+
+              if (eventResult.event === 'not_found' || eventResult.event === 'ignored') {
+                setGateError(eventResult.message || 'Không thể hoàn tất sự kiện cho biển số này.')
+                setGateMessage('')
+                setAutoStatus(eventResult.message || 'Sự kiện chưa được ghi nhận.')
+              } else {
+                setGateError('')
+                setGateMessage(eventResult.message || 'Đã xử lý sự kiện tự động.')
+                if (eventResult.event === 'created') {
+                  setAutoStatus(`Đã tự động tạo vé điện tử cho ${eventResult.plate || plate}.`)
+                } else if (eventResult.event === 'closed' || eventResult.event === 'alert') {
+                  setAutoStatus(`Đã tự động cập nhật vé cho ${eventResult.plate || plate}.`)
+                } else if (eventResult.event === 'duplicate') {
+                  setAutoStatus(`Biển số ${eventResult.plate || plate} đã có vé đang mở; không tạo vé trùng.`)
+                } else {
+                  setAutoStatus(eventResult.message || 'Đã xử lý biển số.')
+                }
+              }
+            } catch (err) {
+              if (!cancelled) {
+                // Nếu API lỗi, yêu cầu đủ 3 frame lần nữa trước khi thử lại.
+                processedPlateRef.current = ''
+                stableCandidateRef.current = { plate: '', count: 0 }
+                setStableFrames(0)
+                setGateMessage('')
+                setGateError(err instanceof Error ? err.message : 'Không thể xử lý sự kiện xe.')
+                setAutoStatus('Gửi sự kiện thất bại. Camera sẽ thử lại sau khi xác minh đủ 3 frame.')
+              }
+            } finally {
+              setCameraBusy(false)
+            }
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setGateError(err instanceof Error ? err.message : 'Không thể đọc frame từ camera.')
+          setAutoStatus('Không lấy được frame. Kiểm tra camera và dịch vụ Python.')
+        }
+      } finally {
+        scanBusyRef.current = false
+        scheduleNext(850)
+      }
     }
-  }
+
+    scheduleNext(450)
+    return () => {
+      cancelled = true
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
+    }
+  }, [activeMenu, cameraOn, gateMode])
 
   if (!token) return <LoginScreen onLogin={handleLogin} />
 
@@ -456,18 +529,23 @@ function App() {
         {activeMenu === 'gate' && (
           <section className="gate-layout">
             <section className="panel gate-panel">
-              <div className="panel-header"><div><h3>Camera cổng vào / ra</h3><p>Ảnh được gửi tới Python OCR khi bạn yêu cầu nhận diện.</p></div><span className={cameraOn ? 'status-pill status-open' : 'status-pill status-pending'}>{cameraOn ? 'Camera đang mở' : 'Camera chưa mở'}</span></div>
+              <div className="panel-header"><div><h3>Camera cổng vào / ra</h3><p>Quét liên tục và chỉ xử lý khi biển số hợp lệ trùng 3 frame liên tiếp.</p></div><span className={cameraOn ? 'status-pill status-open' : 'status-pill status-pending'}>{cameraOn ? 'Tự động quét' : 'Camera chưa mở'}</span></div>
               <div className="camera-live">
                 <video ref={videoRef} className={cameraOn ? 'camera-video' : 'hidden-video'} autoPlay playsInline muted />
                 {!cameraOn && <div className="camera-offline"><div className="camera-symbol">▣</div><strong>Camera chưa bật</strong><span>Nhấn “Mở camera” và cho phép trình duyệt truy cập webcam.</span></div>}
               </div>
               <canvas ref={canvasRef} className="hidden-video" />
               <div className="camera-controls">
-                {!cameraOn ? <button className="primary-button" onClick={startCamera}>Mở camera</button> : <button className="secondary-button inline-button" onClick={stopCamera}>Tắt camera</button>}
-                <button className="secondary-button inline-button" disabled={!cameraOn || cameraBusy} onClick={handlePreview}>{cameraBusy ? 'Đang xử lý…' : 'Chụp ảnh & nhận diện'}</button>
+                {!cameraOn ? <button className="primary-button" onClick={startCamera}>Mở camera & bắt đầu tự quét</button> : <button className="secondary-button inline-button" onClick={stopCamera}>Tắt camera</button>}
+                {cameraOn && <span className="auto-running-label">{cameraBusy ? 'Đang tạo/cập nhật vé…' : 'Tự nhận diện đang bật'}</span>}
               </div>
-              {snapshotUrl && <div className="captured-image"><img src={snapshotUrl} alt="Ảnh chụp từ camera" /></div>}
-              {preview && <div className="recognition-result"><div><span className="result-caption">Biển số nhận diện</span><strong>{preview.plate || 'Chưa nhận diện'}</strong></div><div><span className="result-caption">Độ tin cậy</span><strong>{typeof preview.confidence === 'number' ? (preview.confidence * 100).toFixed(1) + '%' : 'Chưa có'}</strong></div><div><span className="result-caption">Loại xe</span><strong>{preview.vehicle_type ? vehicleText(preview.vehicle_type) : 'Chưa rõ'}</strong></div></div>}
+              <div className="auto-scan-status" role="status" aria-live="polite">
+                <div className="auto-scan-copy"><strong>{cameraBusy ? 'Đang xử lý sự kiện' : cameraOn ? 'Nhận diện tự động' : 'Camera chưa hoạt động'}</strong><span>{autoStatus}</span></div>
+                <div className="frame-progress" aria-label={`Đã xác minh ${stableFrames} trên 3 frame`}>
+                  {[1, 2, 3].map((frame) => <span key={frame} className={stableFrames >= frame ? 'frame-dot frame-dot-active' : 'frame-dot'} />)}
+                </div>
+              </div>
+              {preview && <div className="recognition-result"><div><span className="result-caption">Biển số đang nhận diện</span><strong>{preview.plate || 'Chưa nhận diện'}</strong></div><div><span className="result-caption">Độ tin cậy</span><strong>{typeof preview.confidence === 'number' ? (preview.confidence * 100).toFixed(1) + '%' : 'Chưa có'}</strong></div><div><span className="result-caption">Loại xe</span><strong>{preview.vehicle_type ? vehicleText(preview.vehicle_type) : 'Chưa rõ'}</strong></div></div>}
               {gateMessage && <div className="feedback feedback-success" role="status">{gateMessage}</div>}
               {gateError && <div className="feedback feedback-error" role="alert">{gateError}</div>}
               <div className="gate-submit">
@@ -475,9 +553,28 @@ function App() {
                 <select id="gate-mode" className="form-input" value={gateMode} onChange={(event) => setGateMode(event.target.value as GateMode)}>
                   <option value="entry">Ghi nhận xe vào</option><option value="exit">Xử lý xe ra</option>
                 </select>
-                <p className="gate-note">Hãy kiểm tra biển số sau khi nhận diện. Khi xác nhận, Python sẽ xử lý sự kiện và gọi .NET API để cập nhật SQL Server.</p>
-                <button className="primary-button" disabled={!snapshot || !preview?.valid || cameraBusy} onClick={handleGateEvent}>{cameraBusy ? 'Đang gửi sự kiện…' : gateMode === 'entry' ? 'Xác nhận xe vào' : 'Xác nhận xe ra'}</button>
+                <p className="gate-note">Sau khi camera đọc đúng cùng một biển số trong 3 frame liên tiếp, hệ thống tự tạo vé khi xe vào hoặc tự cập nhật vé khi xe ra. Không cần bấm xác nhận.</p>
+                <div className="auto-workflow-note"><span className="note-mark">✓</span><span>Đã bật xử lý tự động sau khi camera hoạt động.</span></div>
               </div>
+              {lastGateResult?.ticket && (
+                <section className="digital-ticket" aria-live="polite">
+                  <div className="digital-ticket-header">
+                    <div><span className="digital-ticket-kicker">SMART PARKING · VÉ ĐIỆN TỬ</span><h3>{lastGateResult.event === 'created' ? 'Vé vào đã được tạo tự động' : lastGateResult.event === 'closed' ? 'Vé đã cập nhật khi xe ra' : lastGateResult.event === 'alert' ? 'Vé đã đóng · cần kiểm tra' : 'Thông tin vé'}</h3></div>
+                    <span className={statusClass(lastGateResult.ticket.status_code ?? lastGateResult.ticket.status ?? 1)}>{statusText(lastGateResult.ticket.status_code ?? lastGateResult.ticket.status ?? 1)}</span>
+                  </div>
+                  <div className="digital-ticket-code"><span>MÃ VÉ</span><strong>{lastGateResult.ticket.ticket_code || (lastGateResult.ticket.ticket_id ? '#' + lastGateResult.ticket.ticket_id : '—')}</strong></div>
+                  <div className="digital-ticket-grid">
+                    <div><span>Biển số</span><strong className="plate-number">{lastGateResult.ticket.plate || lastGateResult.plate || '—'}</strong></div>
+                    <div><span>Loại xe</span><strong>{vehicleText(lastGateResult.ticket.vehicle_type || 'Motorbike')}</strong></div>
+                    <div><span>Giờ vào</span><strong>{formatDateTime(lastGateResult.ticket.entry_time)}</strong></div>
+                    <div><span>Giờ ra</span><strong>{formatDateTime(lastGateResult.ticket.exit_time)}</strong></div>
+                    <div><span>Phí / phạt</span><strong>{money(lastGateResult.ticket.penalty_amount)}</strong></div>
+                    {lastGateResult.prediction?.estimated_exit && <div><span>Giờ ra dự kiến</span><strong>{String(lastGateResult.prediction.estimated_exit)}</strong></div>}
+                    {lastGateResult.prediction?.recommended_zone && <div><span>Khu đề xuất</span><strong>{String(lastGateResult.prediction.recommended_zone)}</strong></div>}
+                  </div>
+                  <div className="digital-ticket-footer">Vé được lưu trong SQL Server · SmartParking</div>
+                </section>
+              )}
             </section>
             <section className="panel gate-info-panel">
               <div className="panel-header"><div><h3>Luồng xử lý</h3><p>Các dịch vụ cần chạy trên máy local</p></div></div>
@@ -487,7 +584,7 @@ function App() {
                 <div><dt>.NET API</dt><dd>localhost:5049</dd></div>
                 <div><dt>Cơ sở dữ liệu</dt><dd>SQL Server · SmartParking</dd></div>
               </dl>
-              <div className="connection-note">Nếu nhận diện báo lỗi kết nối, kiểm tra dịch vụ Python trước. Nếu Python báo lỗi backend, kiểm tra .NET API và SQL Server.</div>
+              <div className="connection-note">Sau khi bật camera, Python OCR được gọi lặp lại để kiểm tra 3 frame. Khi đủ 3 frame cùng biển số, Python xử lý sự kiện và gọi .NET API để lưu vé vào SQL Server. Nếu có lỗi, kiểm tra Python, .NET API và SQL Server.</div>
             </section>
           </section>
         )}
