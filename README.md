@@ -98,9 +98,7 @@ DEV-SMARTPARKING/
 │   └── src/
 │
 ├── app/
-│   ├── app.py
-│   ├── templates/
-│   └── static/
+│   └── app.py  # Flask API/OCR, không còn giao diện HTML
 │
 ├── src/
 │   ├── data/
