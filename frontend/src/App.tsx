@@ -315,6 +315,7 @@ function App() {
     setCameraBusy(true)
     setGateMessage('')
     setGateError('')
+    setPreview(null)
     try {
       const image = await takeSnapshot()
       const nextUrl = URL.createObjectURL(image)
@@ -348,6 +349,13 @@ function App() {
     try {
       const result: GateEventResult = await submitGateEvent(gateMode, snapshot, preview)
       setGateMessage(result.message || 'Đã gửi sự kiện đến dịch vụ Python.')
+      if (result.event !== 'not_found' && result.event !== 'ignored') {
+        setSnapshot(null)
+        setPreview(null)
+        if (snapshotUrlRef.current) URL.revokeObjectURL(snapshotUrlRef.current)
+        snapshotUrlRef.current = ''
+        setSnapshotUrl('')
+      }
       setRefreshKey((key) => key + 1)
     } catch (err) {
       setGateError(err instanceof Error ? err.message : 'Không thể xử lý sự kiện xe.')
@@ -384,6 +392,7 @@ function App() {
           <div><div className="breadcrumb">Smart Parking <span>/</span> {currentPage.title}</div><h1>{currentPage.title}</h1><p className="page-description">{currentPage.description}</p></div>
           <div className="topbar-actions">
             <span className={'sample-label ' + (connected ? 'connected-label' : '')}><span />{connected ? 'Đã kết nối API' : loadingTickets ? 'Đang tải dữ liệu' : 'Chưa kết nối API'}</span>
+            <button className="refresh-button" onClick={() => setRefreshKey((key) => key + 1)} disabled={loadingTickets}>Làm mới</button>
             <div className="profile"><div className="profile-avatar">A</div><div className="profile-info"><strong>Admin</strong><span>Quản trị viên</span></div><button className="logout-button" onClick={handleLogout}>Đăng xuất</button></div>
           </div>
         </header>
