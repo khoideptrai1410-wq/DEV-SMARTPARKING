@@ -26,12 +26,33 @@ export type PlatePreview = {
   [key: string]: unknown
 }
 
+export type GateTicketResult = {
+  ticket_id?: number | null
+  ticket_code?: string | null
+  plate?: string | null
+  vehicle_type?: string | null
+  entry_time?: string | null
+  exit_time?: string | null
+  status?: number | string
+  status_code?: number
+  penalty_amount?: number
+}
+
+export type GatePredictionResult = {
+  estimated_exit?: string | null
+  recommended_zone?: string | null
+  behavior?: string | null
+  current_demand?: number | null
+  duration_minutes?: number | null
+}
+
 export type GateEventResult = {
   status?: string
   event?: string
   message?: string
   plate?: string
-  ticket?: Record<string, unknown>
+  ticket?: GateTicketResult
+  prediction?: GatePredictionResult
   [key: string]: unknown
 }
 
