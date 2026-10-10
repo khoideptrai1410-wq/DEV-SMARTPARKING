@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, redirect, request, jsonify, send_from_directory
 
 from datetime import datetime
 from pathlib import Path
@@ -1091,34 +1091,15 @@ def _save_scan_record(record):
 # ============================================================
 # PAGE ROUTES
 # ============================================================
+# Flask chỉ còn là dịch vụ API/OCR. Giao diện chính được chạy bằng React.
+# Các đường dẫn trang cũ chuyển về React để không dùng lại template HTML.
 
 @app.route("/")
-def index():
-    return render_template(
-        "gate.html"
-    )
-
-
 @app.route("/dashboard")
-def dashboard():
-    return render_template(
-        "dashboard.html"
-    )
-
-
 @app.route("/parking")
-def parking():
-    return render_template(
-        "gate.html"
-    )
-
-
 @app.route("/history")
-def history():
-    return render_template(
-        "history.html"
-    )
-
+def legacy_page_redirect():
+    return redirect("http://localhost:5173/", code=302)
 
 # ============================================================
 # PREDICTION API
