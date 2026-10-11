@@ -1,172 +1,130 @@
-# Smart Parking
+# Smart Parking — Hướng dẫn cài đặt và chạy
 
-Hệ thống bãi đỗ xe thông minh kết hợp Camera, OCR nhận diện biển số, Backend .NET, React Frontend và SQL Server.
+Hệ thống quản lý bãi đỗ xe gồm giao diện React, Backend .NET, dịch vụ Python cho camera/OCR và cơ sở dữ liệu SQL Server. Repo cũng có các notebook và mã nguồn thử nghiệm Machine Learning.
 
-## 1. Kiến trúc
+> Hướng dẫn dùng **Windows + PowerShell + VS Code**. Các lệnh bên dưới giả sử bạn đang ở thư mục gốc repo, nơi có `README.md`, `requirements.txt`, `Backend/` và `frontend/`.
 
-```
-                    React Frontend
-              React + TypeScript + Vite
-                       │
-                       │ HTTP / JSON
-                       ▼
-                 SmartParking API
-                    .NET 10
-                       │
-                    Dapper
-                       │
-                       ▼
-                  SQL Server
-                Database: SmartParking
+## 1. Công nghệ sử dụng trong dự án
 
+| Thành phần | Công nghệ | Vai trò |
+|---|---|---|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS | Giao diện đăng nhập, dashboard, danh sách vé và camera |
+| Backend | .NET 10, ASP.NET Core Web API | Cung cấp API cho đăng nhập và vé xe |
+| Truy cập dữ liệu | Dapper, Microsoft.Data.SqlClient | Backend truy vấn SQL Server |
+| Xác thực | JWT Bearer Authentication | Xác thực API |
+| Tài liệu API | Swagger / OpenAPI | Xem và thử API |
+| Camera/OCR | Python, Flask, OpenCV, RapidOCR, ONNX Runtime, pytesseract/Tesseract | Nhận ảnh, đọc biển số và xử lý sự kiện cổng |
+| Xử lý dữ liệu/ML | NumPy, Pandas, scikit-learn, Matplotlib, Seaborn, Joblib, XGBoost, Pillow | Xử lý dữ liệu, thử nghiệm và đánh giá mô hình |
+| Cơ sở dữ liệu | Microsoft SQL Server | Lưu thông tin vé xe |
+| Công cụ mã nguồn | Git, VS Code (khuyến nghị) | Lấy mã nguồn và phát triển |
 
- Camera/Webcam
-       │
-       ▼
- Python Flask
-       │
-       ├── OpenCV
-       ├── RapidOCR
-       ├── Tesseract fallback
-       └── xử lý sự kiện cổng vào/ra
-               │
-               └──────────► .NET API
-```
+Danh sách package Python cụ thể nằm trong `requirements.txt`; package JavaScript nằm trong `frontend/package.json`; package .NET được khai báo trong các file project của `Backend/`.
 
-React là giao diện mới. Python phụ trách camera, xử lý ảnh và OCR. .NET là Backend/API và là lớp truy cập SQL Server thông qua Dapper.
+## 2. Những công nghệ cần tải
 
-## 2. Công nghệ cần cài đặt
+### Bắt buộc để chạy toàn hệ thống
 
-### Bắt buộc
+1. **Git** — tải mã nguồn và đồng bộ thay đổi: https://git-scm.com/downloads
+2. **Python 3.x** — chạy Flask/OCR và notebook: https://www.python.org/downloads/  
+   Khi cài trên Windows, chọn **Add Python to PATH** nếu trình cài đặt có tùy chọn này.
+3. **Node.js LTS** — cung cấp cả Node.js và npm để chạy React/Vite: https://nodejs.org/
+4. **.NET 10 SDK** — build và chạy Backend: https://dotnet.microsoft.com/download/dotnet/10.0
+5. **SQL Server** — máy chủ database: https://www.microsoft.com/en-us/sql-server/sql-server-downloads
+6. **SQL Server Management Studio (SSMS)** — giao diện quản lý SQL Server, không thay thế SQL Server: https://learn.microsoft.com/en-us/ssms/install/install
+7. **Trình duyệt Chrome hoặc Edge** — nên dùng để cấp quyền webcam cho giao diện React.
 
-- Git
-- Python 3.x
-- Node.js + npm
-- .NET 10 SDK
-- SQL Server Management Studio (SSMS)
-- Lưu Ý: Thiết bị cần phải có camera để quét nhận diện biển số xe
+**Khuyến nghị:** Visual Studio Code để mở project và chạy các terminal: https://code.visualstudio.com/
 
-### Công nghệ trong project
+### Tùy chọn
 
-### Python
-- Flask
-- OpenCV
-- NumPy
-- Pandas
-- scikit-learn
-- Matplotlib
-- Seaborn
-- Joblib
-- XGBoost
-- Pillow
-- RapidOCR
-- ONNX Runtime
-- Tesseract OCR qua `pytesseract`
-=> Danh sách package Python nằm trong `requirements.txt`.
+- **Tesseract OCR**: nếu muốn dùng nhánh OCR dự phòng qua `pytesseract`, cần cài ứng dụng Tesseract OCR riêng và bảo đảm chương trình truy cập được `tesseract.exe`. Python package `pytesseract` không tự cài Tesseract.
+- **Jupyter Notebook**: chỉ cần nếu muốn mở/chạy các notebook ML. Có thể cài bằng `python -m pip install notebook` hoặc dùng hỗ trợ notebook trong VS Code.
+- **Camera/webcam**: cần có thiết bị camera và cho phép trình duyệt truy cập camera để thử chức năng quét.
 
-### Backend
+### Kiểm tra đã cài
 
-- .NET 10
-- ASP.NET Core Web API
-- Dapper
-- Microsoft.Data.SqlClient
-- JWT Bearer Authentication
-- Swagger / OpenAPI
-
-### Frontend
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS
-- Oxlint
-
-## 3. Cấu trúc project
-```
-DEV-SMARTPARKING/
-│
-├── Backend/
-│   ├── SmartParking.slnx
-│   └── src/
-│       ├── SmartParking.Application/
-│       ├── SmartParking.Domain/
-│       ├── SmartParking.Infrastructure/
-│       └── Smartparking.Api/
-│
-├── frontend/
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── src/
-│
-├── app/
-│   └── app.py  # Flask API/OCR, không còn giao diện HTML
-│
-├── src/
-│   ├── data/
-│   ├── features/
-│   ├── models/
-│   ├── parking/
-│   └── vision/
-│
-├── data/
-├── database/
-├── models/
-├── notebooks/
-├── outputs/
-├── tests/
-├── docs/
-└── requirements.txt
-```
-
-## 4. Cài đặt lần đầu
-
-Hướng dẫn dưới đây dùng Windows PowerShell.
-
-### Bước 1: Cài Python package
-Kiểm tra Python:
+Mở PowerShell mới và chạy:
 
 ```powershell
+git --version
 python --version
+python -m pip --version
+node --version
+npm --version
+dotnet --list-sdks
 ```
 
-Cài toàn bộ package:
+Cần thấy .NET SDK 10.x trong danh sách. Nếu lệnh nào báo không nhận diện, hãy cài công nghệ tương ứng rồi mở lại terminal.
+
+## 3. Lấy mã nguồn
+
+Nếu chưa có project trên máy:
+
 ```powershell
+git clone https://github.com/khoideptrai1410-wq/DEV-SMARTPARKING.git
+cd DEV-SMARTPARKING
+```
+
+Nếu đã có repo trên máy, mở terminal tại thư mục gốc và kiểm tra thay đổi trước khi cập nhật:
+
+```powershell
+git status
+git pull --ff-only
+```
+
+Nếu `git status` có các file đã sửa hoặc file chưa được theo dõi, hãy sao lưu/commit những thay đổi cần giữ trước khi pull. Không dùng `git reset --hard` hoặc `git clean -fd` nếu chưa chắc chắn vì có thể làm mất công việc local.
+
+## 4. Cài package cho từng thành phần
+
+Thực hiện tại thư mục gốc repo.
+
+### 4.1. Python
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### Bước 2: Cài Frontend package
+Nếu PowerShell chặn kích hoạt môi trường ảo, không cần đổi chính sách hệ thống ngay; gửi thông báo lỗi để xử lý phù hợp. Mỗi lần mở terminal mới, kích hoạt lại bằng `.\.venv\Scripts\Activate.ps1`.
+
+### 4.2. React
+
 ```powershell
 cd frontend
 npm install
 cd ..
 ```
 
-### Bước 3: Kiểm tra .NET
+### 4.3. .NET
 
 ```powershell
-dotnet --version
+cd Backend
+dotnet --list-sdks
+dotnet restore
+dotnet build
+cd ..
 ```
 
-Project Backend dùng .NET 10.
+Nếu build báo lỗi, đọc lỗi đầu tiên trong terminal và xử lý trước khi chạy tiếp.
 
-## 5. Database SQL Server
+## 5. Cấu hình SQL Server
 
-Backend hiện kết nối tới:
+Backend dùng database tên `SmartParking`. Cấu hình local mặc định trong project dùng Windows Authentication với server `localhost`; trước khi chạy cần kiểm tra cấu hình kết nối trong:
 
-```text
-Server=localhost
-Database=SmartParking
-Trusted_Connection=True
-TrustServerCertificate=True
-```
+`Backend/src/Smartparking.Api/appsettings.json`
 
-Trong SSMS tạo hoặc chọn database:
+Nếu SQL Server cài ở instance khác, hãy chỉnh connection string cho đúng máy/instance của bạn. Không đưa mật khẩu hoặc JWT secret thật lên GitHub.
+
+Mở SSMS, kết nối tới instance SQL Server đang chạy. Nếu database chưa tồn tại, có thể tạo:
 
 ```sql
 CREATE DATABASE SmartParking;
 GO
 ```
 
-Sau đó tạo bảng `dbo.Tickets`:
+Tạo bảng vé nếu project/database của bạn chưa có bảng tương ứng:
 
 ```sql
 USE SmartParking;
@@ -190,136 +148,92 @@ CREATE TABLE dbo.Tickets
 GO
 ```
 
-Kiểm tra:
+Không chạy lại lệnh `CREATE TABLE` nếu bảng đã tồn tại. Có thể kiểm tra dữ liệu bằng:
 
 ```sql
 USE SmartParking;
-GO
-
-SELECT *
-FROM dbo.Tickets
-ORDER BY TicketId DESC;
+SELECT * FROM dbo.Tickets ORDER BY TicketId DESC;
 ```
 
-> Lưu ý: thư mục `database/` vẫn có các file SQLite cũ của giai đoạn trước. Backend .NET hiện sử dụng SQL Server `SmartParking`.
+> Repo còn một số file SQLite cũ từ giai đoạn trước; Backend .NET hiện được cấu hình dùng SQL Server `SmartParking`. Không nhầm các file SQLite cũ với database mà Backend đang sử dụng.
 
-## 6. Chạy chương trình
+## 6. Chạy hệ thống — mỗi thành phần một terminal
 
-Mở các cửa sổ PowerShell riêng. Muốn dùng đầy đủ dashboard, camera/OCR và lưu vé, cần chạy SQL Server, .NET API, Python và React.
+Đảm bảo SQL Server đang chạy và database/bảng đã sẵn sàng. Mở **4 terminal riêng** tại thư mục gốc repo.
 
-### PowerShell 1 - SQL Server
+### Terminal 1 — SQL Server
 
-Mở SQL Server/SSMS và bảo đảm database `SmartParking` cùng bảng `dbo.Tickets` đã được tạo.
+Khởi động dịch vụ SQL Server bằng Services/SQL Server Configuration Manager nếu dịch vụ chưa chạy. SSMS là công cụ để kết nối và kiểm tra database.
 
-### PowerShell 2 - Backend .NET
-
-Từ thư mục gốc dự án:
+### Terminal 2 — Backend .NET API
 
 ```powershell
 cd Backend
-dotnet restore
-dotnet build
 dotnet run --launch-profile http --project src\Smartparking.Api\Smartparking.Api.csproj
 ```
 
-Backend dùng địa chỉ `http://localhost:5049`. Swagger ở `http://localhost:5049/swagger`.
+Theo cấu hình phát triển hiện tại, API dự kiến ở `http://localhost:5049`; Swagger ở `http://localhost:5049/swagger`.
 
-### PowerShell 3 - Python OCR/API
+### Terminal 3 — Python Flask/OCR API
 
-Từ thư mục gốc dự án:
+Tại thư mục gốc repo:
 
 ```powershell
+.\.venv\Scripts\Activate.ps1
 python app/app.py
 ```
 
-Python chạy tại `http://127.0.0.1:5000`. Flask không còn phục vụ trang HTML; các endpoint OCR/API được giữ nguyên. Truy cập các đường dẫn trang cũ sẽ chuyển về React.
+Dịch vụ Python dự kiến ở `http://127.0.0.1:5000`. Giữ terminal mở để dịch vụ tiếp tục chạy.
 
-### PowerShell 4 - React Frontend
+### Terminal 4 — React/Vite
 
 ```powershell
 cd frontend
-npm install
 npm run dev
 ```
 
-Mở địa chỉ Vite hiển thị trong Terminal, thường là `http://localhost:5173`.
+Mở URL Vite hiển thị trong terminal; thường là `http://localhost:5173`.
 
-Ở màn hình đăng nhập, tài khoản demo hiện được cấu hình trong `AuthController.cs`:
+Trong môi trường phát triển, Vite proxy các đường dẫn `/backend-api` tới .NET và `/python-api` tới Flask. Không đóng các terminal của dịch vụ đang sử dụng.
+
+## 7. Đăng nhập và thử chức năng
+
+Tài khoản demo được cấu hình trong mã nguồn hiện tại:
+
 - Username: `admin`
 - Password: `123456`
 
-React dùng proxy Vite để gọi .NET và Python trong môi trường phát triển. Nếu chỉ thử đăng nhập và xem danh sách vé, cần SQL Server, backend .NET và React; nếu muốn dùng camera/OCR thì chạy thêm Python.
+Đây là tài khoản demo/local, không dùng cho triển khai thực tế.
 
-## 7. Luồng hệ thống
+Kiểm tra theo thứ tự:
+
+1. Mở React tại URL Vite.
+2. Đăng nhập.
+3. Kiểm tra dashboard và danh sách vé có tải dữ liệu từ .NET API/SQL Server hay không.
+4. Mở trang cổng vào/ra và cấp quyền camera cho trình duyệt.
+5. Thử nhận diện biển số trong điều kiện đủ sáng, sau đó kiểm tra sự kiện và vé được ghi nhận trong database.
+6. Thử chức năng xe ra và kiểm tra `ExitTime`, `Status` cùng dữ liệu liên quan trong bảng `dbo.Tickets`.
+
+Nếu chỉ kiểm tra giao diện đăng nhập/danh sách vé, cần SQL Server, .NET API và React. Nếu kiểm tra camera/OCR, phải chạy thêm Python.
+
+## 8. Luồng hoạt động tổng quát
 
 ### Xe vào
 
-```
-Camera
-  ↓
-Python Flask
-  ↓
-Tìm vùng biển số
-  ↓
-OCR
-  ↓
-Chuẩn hóa biển số
-  ↓
-Kiểm tra nhận diện ổn định
-  ↓
-.NET API
-  ↓
-Tạo vé
-  ↓
-SQL Server
-  ↓
-Trạng thái = 1 (Đang gửi)
-```
-
-Hệ thống lưu mã vé, biển số, thời gian vào, ảnh frame và ảnh crop biển số.
+Camera/webcam → React → Python Flask/OCR → .NET API → SQL Server → giao diện cập nhật danh sách vé.
 
 ### Xe ra
 
-```
-Camera
-  ↓
-Python Flask
-  ↓
-OCR
-  ↓
-Tìm vé đang gửi theo biển số
-  ↓
-.NET API
-  ↓
-Cập nhật thời gian ra / ảnh ra
-  ↓
-SQL Server
-  ↓
-Trạng thái = 2 (Đã trả xe)
-```
+Camera/webcam → Python OCR nhận diện biển số → .NET API cập nhật vé → SQL Server → giao diện cập nhật trạng thái.
 
-Nếu không tìm thấy vé đang gửi phù hợp, hệ thống có thể xử lý theo trạng thái cảnh báo.
+Giao diện React hiện nằm trong `frontend/`; Flask cung cấp API/OCR, không còn dùng các trang HTML cũ làm giao diện chính. Chức năng camera phụ thuộc vào quyền webcam, chất lượng ảnh, mô hình OCR và cấu hình các dịch vụ. Hệ thống phần mềm không đồng nghĩa với việc đã tích hợp điều khiển barrier vật lý.
 
-## 8. API Backend chính
+## 9. API tham khảo
 
-Tất cả API ticket yêu cầu JWT.
-
-### Đăng nhập
+### .NET API
 
 ```http
 POST /api/Auth/login
-```
-
-Tài khoản test local:
-
-```text
-Username: admin
-Password: 123456
-```
-
-### Ticket
-
-```http
 GET  /api/Tickets
 GET  /api/Tickets/{id}
 GET  /api/Tickets/open/{plate}
@@ -327,9 +241,9 @@ POST /api/Tickets/entry
 POST /api/Tickets/{id}/exit
 ```
 
-### Python Camera/OCR
+Các API ticket cần JWT theo cấu hình hiện tại.
 
-Các endpoint chính hiện có:
+### Python API
 
 ```text
 /api/preview-plate
@@ -339,101 +253,52 @@ Các endpoint chính hiện có:
 /ticket-image/<filename>
 ```
 
-## 9. Camera và OCR
+Địa chỉ đầy đủ phụ thuộc host/port của dịch vụ Python, thường là `http://127.0.0.1:5000`.
 
-Trang Cổng vào / ra trong React sử dụng `getUserMedia()` để mở webcam. Sau khi bấm **Mở camera & bắt đầu tự quét**, ứng dụng tự lấy frame từ video và gọi Python OCR liên tục.
+## 10. Chạy notebook Machine Learning (tùy chọn)
 
-Luồng xử lý tự động:
+Các notebook nằm trong `notebooks/`. Nếu muốn chạy thử nghiệm ML, hãy kích hoạt môi trường Python và mở notebook bằng VS Code/Jupyter. Nên chạy theo thứ tự số trong tên file vì notebook sau có thể dùng dữ liệu hoặc mô hình được tạo từ notebook trước.
 
-- React gửi từng frame đến Python `/api/preview-plate` để đọc biển số.
-- Chỉ khi nhận được **cùng một biển số hợp lệ trong 3 frame liên tiếp**, React mới tự gửi frame đó đến `/api/gate-event`.
-- Người vận hành chọn chế độ cổng trước khi quét: **Ghi nhận xe vào** hoặc **Xử lý xe ra**. Không cần bấm nút xác nhận sau khi nhận diện.
-- Với xe vào, Python kiểm tra vé đang mở để tránh tạo vé trùng, lưu ảnh rồi gọi .NET API tạo vé.
-- Với xe ra, Python tìm vé đang mở, tính phí/phạt và gọi .NET API cập nhật thời gian ra, ảnh ra và trạng thái.
-- React tự tải lại danh sách vé và hiển thị thẻ vé điện tử sau khi backend trả kết quả. Khi biển số vẫn nằm trong khung hình, ứng dụng khóa xử lý biển số đó để tránh gửi cùng sự kiện lặp lại; camera tiếp tục quét các xe tiếp theo.
+Các notebook có thể tạo hoặc cập nhật file CSV, mô hình và kết quả trong `data/`, `models/` hoặc `outputs/`. Trước khi commit, kiểm tra `git status` để tránh vô tình đưa dữ liệu sinh ra hoặc file mô hình lớn lên GitHub. Kết quả notebook chưa tự động chứng minh mô hình hoạt động tốt trên dữ liệu bãi xe thực tế.
 
-Nếu camera không mở:
-1. Cho phép Camera trong Chrome/Edge.
-2. Mở giao diện React tại địa chỉ Vite, thường là `http://localhost:5173`.
-3. Đóng Camera, Zoom, Teams hoặc ứng dụng khác đang chiếm webcam.
-4. Tải lại trang rồi bấm **Mở camera & bắt đầu tự quét**.
+## 11. Lệnh kiểm tra/build
 
-Lưu ý: đây là tự động nhận diện và ghi nhận vé bằng camera trình duyệt sau khi người vận hành bật camera và chọn chiều cổng; nó chưa tự điều khiển barrier vật lý.
-
-## 10. Frontend hiện tại
-
-Giao diện chính nằm trong `frontend/`; giao diện HTML Flask cũ trong `app/templates/` cùng CSS/JavaScript cũ trong `app/static/` đã được gỡ khỏi nhánh hiện tại. Lịch sử Git vẫn giữ các commit trước đó để có thể khôi phục khi cần.
-
-Các phần đã được nối trong mã nguồn:
-- Đăng nhập qua `POST /api/Auth/login`, nhận JWT và giữ token trong `sessionStorage`.
-- Đọc danh sách vé qua `GET /api/Tickets`; các số liệu dashboard tính từ dữ liệu backend trả về.
-- Tìm kiếm biển số hoặc mã vé trong danh sách xe đang gửi và lịch sử.
-- Camera React gửi ảnh qua Python OCR; Python tiếp tục gọi .NET API để tạo vé hoặc cập nhật vé ra.
-- Vite proxy các đường dẫn `/backend-api` đến .NET và `/python-api` đến Flask để tránh phải cấu hình CORS cho local.
-
-Build frontend:
+Frontend:
 
 ```powershell
 cd frontend
 npm run build
 ```
 
-Chưa nên xem là kiểm thử end-to-end hoàn tất cho đến khi chạy thực tế với SQL Server, .NET, Python và webcam trên máy của bạn.
+Backend, chạy từ thư mục gốc:
 
-## 11. Kiểm tra nhanh sau khi cài
+```powershell
+cd Backend
+dotnet build
+```
 
-### Python
+Python, chạy từ thư mục gốc trong môi trường ảo:
 
 ```powershell
 python -m pip install -r requirements.txt
 python app/app.py
 ```
 
-### Backend
+Các lệnh build chỉ xác minh từng phần ở mức tương ứng; cần chạy cùng SQL Server, .NET, Python, React và camera để kiểm thử end-to-end.
 
-```powershell
-cd Backend
-dotnet build
-dotnet run --project src\Smartparking.Api\Smartparking.Api.csproj
-```
+## 12. Lỗi thường gặp
 
-### Frontend
+- **`node` hoặc `npm` không được nhận diện:** cài Node.js LTS rồi mở terminal mới.
+- **`python` không được nhận diện:** cài Python và kiểm tra PATH; có thể thử `py --version` trên Windows.
+- **Không thấy .NET SDK 10:** cài .NET 10 SDK, không chỉ cài runtime.
+- **Không kết nối được SQL Server:** kiểm tra dịch vụ SQL Server, tên instance, authentication và connection string trong `appsettings.json`.
+- **Frontend không gọi được API:** kiểm tra cả terminal .NET/Python, port và cấu hình proxy trong `frontend/vite.config.ts`.
+- **Không mở được webcam:** dùng localhost, cấp quyền camera cho Chrome/Edge và đóng ứng dụng khác đang chiếm camera.
+- **OCR nhận sai biển số:** thử ảnh rõ nét, đủ sáng và kiểm tra log của Python; OCR có thể sai và cần kiểm chứng thực tế.
 
-```powershell
-cd frontend
-npm install
-npm run dev
-```
+## 13. Bảo mật và giới hạn
 
-### Database
-
-```sql
-USE SmartParking;
-SELECT * FROM dbo.Tickets ORDER BY TicketId DESC;
-```
-
-## 12. Trạng thái project
-
-### Đã có trong mã nguồn
-- Python OCR và API xử lý sự kiện cổng vào/ra.
-- .NET 10 Web API, JWT, Dapper và SQL Server.
-- React đăng nhập bằng JWT.
-- Dashboard, danh sách vé đang gửi và lịch sử lấy từ API.
-- Tìm kiếm biển số/mã vé trên dữ liệu đã tải.
-- Trang React mở webcam, tự đọc frame liên tục; khi cùng biển số hợp lệ khớp 3 frame liên tiếp, tự gửi sự kiện đến Python/.NET.
-- Vé điện tử được hiển thị từ kết quả backend và lưu trong SQL Server.
-- Các template HTML Flask cũ và tài nguyên CSS/JavaScript đi kèm đã được gỡ khỏi nhánh hiện tại.
-
-### Cần kiểm tra tiếp trên máy local
-- Chạy `npm run build` để kiểm tra TypeScript và build.
-- Đăng nhập React khi .NET API và SQL Server đang chạy.
-- Thử lấy danh sách vé hiện có trong SQL Server.
-- Thử camera/OCR với ảnh biển số rõ; xác nhận xe vào và xác nhận xe ra.
-- Kiểm tra trường hợp backend hoặc SQL Server tắt để bảo đảm giao diện hiển thị lỗi dễ hiểu.
-- Hoàn thiện xác thực tài khoản thực tế; thông tin đăng nhập hiện tại là tài khoản demo cố định trong mã nguồn.
-
-## 13. Lưu ý bảo mật
-
-File `Backend/src/Smartparking.Api/appsettings.json` hiện chứa cấu hình JWT và chuỗi kết nối dùng cho môi trường local/demo.
-
-Không dùng nguyên cấu hình này cho môi trường production. Hãy thay JWT secret và chuyển các thông tin nhạy cảm sang biến môi trường hoặc secret manager khi triển khai thực tế.
+- Không sử dụng tài khoản demo, JWT secret hoặc cấu hình database mẫu trong môi trường production.
+- Không commit mật khẩu, khóa bí mật, dữ liệu cá nhân hoặc ảnh biển số thật lên repository công khai.
+- Thay JWT secret và dùng biến môi trường/secret manager khi triển khai thực tế.
+- Chưa coi hệ thống là đã kiểm thử end-to-end cho đến khi bạn tự chạy và kiểm tra toàn bộ dịch vụ trên máy có SQL Server và webcam.
