@@ -27,7 +27,7 @@ Nên làm trong môi trường Python riêng để không ảnh hưởng môi tr
 
 ```powershell
 py -3.11 -m venv .venv-yolo-paddle
-.\\.venv-yolo-paddle\\Scripts\\Activate.ps1
+.\.venv-yolo-paddle\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
@@ -35,8 +35,8 @@ python -m pip install -r requirements.txt
 Cài implementation YOLOv12 từ repository upstream theo hướng dẫn của tác giả. Thực hiện trong thư mục phụ bên ngoài repo SmartParking, không trộn source YOLOv12 vào mã ứng dụng:
 
 ```powershell
-git clone https://github.com/sunsmarterjie/yolov12.git ..\\yolov12-upstream
-python -m pip install -e ..\\yolov12-upstream
+git clone https://github.com/sunsmarterjie/yolov12.git ..\yolov12-upstream
+python -m pip install -e ..\yolov12-upstream
 ```
 
 Sau đó cài PaddleOCR:
@@ -54,7 +54,7 @@ PaddleOCR có phụ thuộc framework/runtime riêng. Cách cài CPU/GPU phụ t
 3. Đặt biến môi trường trỏ đến file weights:
 
 ```powershell
-$env:SMARTPARKING_YOLO_PLATE_MODEL="C:\\duong-dan\\den\\yolov12n_plate.pt"
+$env:SMARTPARKING_YOLO_PLATE_MODEL="C:\duong-dan\den\yolov12n_plate.pt"
 ```
 
 Tuỳ chọn chọn thiết bị:
