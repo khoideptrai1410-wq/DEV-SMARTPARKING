@@ -31,7 +31,7 @@ class ExperimentalPlateRecognizer:
             model_path
             or os.getenv(
                 "SMARTPARKING_YOLO_PLATE_MODEL",
-                "models/plate_detection/yolov12n_plate.pt",
+                "models/vision/yolov12n_plate.pt",
             )
         )
         self.device = device or os.getenv("SMARTPARKING_YOLO_DEVICE")
