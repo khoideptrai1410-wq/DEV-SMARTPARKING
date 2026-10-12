@@ -67,6 +67,7 @@ class ExperimentalPlateRecognizer:
                     "Xem docs/YOLOV12_PADDLEOCR_EXPERIMENT.md."
                 ) from exc
             self._ocr = PaddleOCR(
+                engine="paddle",
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=False,
                 use_textline_orientation=False,
