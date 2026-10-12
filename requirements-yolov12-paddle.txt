@@ -1,4 +1,3 @@
-# Optional add-on dependency for the isolated experiment.
-# Install the YOLOv12 implementation separately as described in
-# docs/YOLOV12_PADDLEOCR_EXPERIMENT.md.
-paddleocr>=3.0,<4.0
+# Optional dependencies for the isolated YOLOv12 + PaddleOCR experiment.
+# PaddleOCR 3.5 adds the unified engine="paddle" setting used by the prototype.
+paddleocr>=3.5,<4.0
