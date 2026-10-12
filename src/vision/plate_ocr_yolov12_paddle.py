@@ -102,7 +102,19 @@ class ExperimentalPlateRecognizer:
                     walk(value["res"])
                     return
                 texts = value.get("rec_texts")
-                scores = value.get("rec_scores") or []
+                scores = value.get("rec_scores")
+                # PaddleOCR 3.x may expose rec_texts/rec_scores as NumPy arrays.
+                if hasattr(texts, "tolist"):
+                    texts = texts.tolist()
+                if scores is None:
+                    scores = []
+                elif hasattr(scores, "tolist"):
+                    scores = scores.tolist()
+                elif not isinstance(scores, (list, tuple)):
+                    try:
+                        scores = list(scores)
+                    except TypeError:
+                        scores = []
                 if isinstance(texts, (list, tuple)):
                     for i, text in enumerate(texts):
                         score = 0.0
