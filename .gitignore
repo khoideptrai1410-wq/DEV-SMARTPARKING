@@ -26,3 +26,10 @@ Thumbs.db
 Backend/**/bin/
 Backend/**/obj/
 Backend/.vs/
+
+# Local license-plate dataset and annotations (keep private; do not commit raw images)
+data/datasets/plate_detection/inbox/
+data/datasets/plate_detection/yolo/
+
+# Local benchmark output
+outputs/plate_ocr_benchmark.csv
