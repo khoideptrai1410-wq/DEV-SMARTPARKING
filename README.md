@@ -109,53 +109,40 @@ cd ..
 
 Nếu build báo lỗi, đọc lỗi đầu tiên trong terminal và xử lý trước khi chạy tiếp.
 
-## 5. Cấu hình SQL Server
+## 5. Cấu hình SQL Server và khởi tạo database
 
-Backend dùng database tên `SmartParking`. Cấu hình local mặc định trong project dùng Windows Authentication với server `localhost`; trước khi chạy cần kiểm tra cấu hình kết nối trong:
+Backend dùng SQL Server với database tên `SmartParking`. Trước khi chạy, hãy bảo đảm dịch vụ SQL Server đang hoạt động và connection string trỏ đúng instance trên máy của bạn.
+
+Cấu hình nằm tại:
 
 `Backend/src/Smartparking.Api/appsettings.json`
 
-Nếu SQL Server cài ở instance khác, hãy chỉnh connection string cho đúng máy/instance của bạn. Không đưa mật khẩu hoặc JWT secret thật lên GitHub.
+Kiểm tra `ConnectionStrings:DefaultConnection`. Giá trị mẫu trong repo dùng Windows Authentication và server `localhost`:
 
-Mở SSMS, kết nối tới instance SQL Server đang chạy. Nếu database chưa tồn tại, có thể tạo:
-
-```sql
-CREATE DATABASE SmartParking;
-GO
+```json
+"DefaultConnection": "Server=localhost;Database=SmartParking;Trusted_Connection=True;TrustServerCertificate=True;"
 ```
 
-Tạo bảng vé nếu project/database của bạn chưa có bảng tương ứng:
+Nếu SQL Server của bạn dùng instance khác, hãy đổi `Server=...` cho phù hợp. Không commit mật khẩu hoặc secret thật lên GitHub.
 
-```sql
-USE SmartParking;
-GO
+### Tạo database bằng script trong thư mục database
 
-CREATE TABLE dbo.Tickets
-(
-    TicketId BIGINT IDENTITY(1,1) PRIMARY KEY,
-    TicketCode NVARCHAR(50) NOT NULL UNIQUE,
-    Plate NVARCHAR(30) NOT NULL,
-    VehicleType NVARCHAR(30) NOT NULL DEFAULT 'Motorbike',
-    EntryTime DATETIME2 NOT NULL,
-    EntryImagePath NVARCHAR(500) NULL,
-    PlateImagePath NVARCHAR(500) NULL,
-    ExitTime DATETIME2 NULL,
-    ExitImagePath NVARCHAR(500) NULL,
-    Status INT NOT NULL DEFAULT 1,
-    PenaltyAmount DECIMAL(18,2) NOT NULL DEFAULT 0,
-    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE()
-);
-GO
-```
-
-Không chạy lại lệnh `CREATE TABLE` nếu bảng đã tồn tại. Có thể kiểm tra dữ liệu bằng:
+1. Mở SSMS và kết nối đúng SQL Server instance.
+2. Mở `database/schema.sql`, bấm **Execute** để tạo database/bảng và các ràng buộc còn thiếu theo script.
+3. Mở `database/seed.sql`, bấm **Execute** để thêm dữ liệu demo ban đầu.
+4. Kiểm tra kết quả:
 
 ```sql
 USE SmartParking;
-SELECT * FROM dbo.Tickets ORDER BY TicketId DESC;
+GO
+SELECT TOP 20 *
+FROM dbo.Tickets
+ORDER BY TicketId DESC;
 ```
 
-> Repo còn một số file SQLite cũ từ giai đoạn trước; Backend .NET hiện được cấu hình dùng SQL Server `SmartParking`. Không nhầm các file SQLite cũ với database mà Backend đang sử dụng.
+`seed.sql` chỉ thêm dữ liệu mẫu; nó không nhập các vé thực tế từ máy khác. Nếu database/bảng đã tồn tại từ phiên bản trước, hãy sao lưu trước khi thay đổi cấu trúc. Script khởi tạo không thay thế việc migration và kiểm tra tương thích với database đang sử dụng.
+
+> File SQLite cũ trong repo không phải database SQL Server mà Backend .NET hiện kết nối. Chạy script trên máy riêng sẽ tạo database riêng; muốn nhiều máy xem chung vé thực tế, cần triển khai một SQL Server/database dùng chung và cấu hình Backend của các máy kết nối đến đó.
 
 ## 6. Chạy hệ thống — mỗi thành phần một terminal
 
@@ -302,3 +289,38 @@ Các lệnh build chỉ xác minh từng phần ở mức tương ứng; cần c
 - Không commit mật khẩu, khóa bí mật, dữ liệu cá nhân hoặc ảnh biển số thật lên repository công khai.
 - Thay JWT secret và dùng biến môi trường/secret manager khi triển khai thực tế.
 - Chưa coi hệ thống là đã kiểm thử end-to-end cho đến khi bạn tự chạy và kiểm tra toàn bộ dịch vụ trên máy có SQL Server và webcam.
+
+
+## 14. Các phần còn thiếu / cần hoàn thiện để đáp ứng yêu cầu đồ án
+
+> **Lưu ý về phạm vi:** Repository này không kèm đề bài hoặc rubric chính thức có tên “3 Project”. Vì vậy, danh sách dưới đây là checklist kỹ thuật dựa trên cấu trúc hiện tại, không phải kết luận rằng giảng viên bắt buộc từng mục. Hãy đối chiếu với yêu cầu chính thức của thầy trước khi chốt.
+
+### 14.1. Kiểm thử end-to-end và bằng chứng
+
+- [ ] Chạy toàn bộ luồng **camera/OCR → Python Flask → .NET API → SQL Server → React** trên một máy sạch hoặc môi trường demo.
+- [ ] Kiểm tra tạo vé vào, xe ra, cập nhật trạng thái, trường hợp biển số không đọc được, biển số trùng hoặc không tìm thấy vé đang mở.
+- [ ] Bổ sung test tự động cho các API quan trọng, xác thực JWT và thao tác repository/database.
+- [ ] Ghi lại kết quả test, ảnh chụp màn hình và các bước tái hiện lỗi để dùng khi nghiệm thu.
+
+### 14.2. Database và triển khai
+
+- [ ] Xác nhận `schema.sql` khớp hoàn toàn với model, câu truy vấn trong Dapper và database thực tế; nếu schema thay đổi, cập nhật script có kiểm soát.
+- [ ] Có hướng dẫn backup/restore và cách chuyển dữ liệu vé thực tế. `seed.sql` chỉ là dữ liệu demo, không phải bản sao database.
+- [ ] Nếu yêu cầu dùng nhiều máy chung dữ liệu, triển khai SQL Server trên máy chủ/cloud và cấu hình Backend truy cập an toàn; database cục bộ của mỗi máy không tự đồng bộ.
+- [ ] Cấu hình môi trường riêng cho development/demo; không để JWT secret, mật khẩu hoặc thông tin nhạy cảm trong repo công khai.
+
+### 14.3. Hoàn thiện ứng dụng
+
+- [ ] Kiểm tra phân quyền và xác thực ở mọi endpoint cần bảo vệ; không chỉ dựa vào việc ẩn nút trên giao diện.
+- [ ] Chuẩn hóa phản hồi lỗi, logging, kiểm tra dữ liệu đầu vào và thông báo lỗi ở frontend.
+- [ ] Kiểm tra việc lưu trữ đường dẫn ảnh vé: file ảnh phải tồn tại và có thể truy cập trên môi trường triển khai, không chỉ trên máy tạo vé.
+- [ ] Xác nhận chức năng camera/OCR chạy ổn định với dữ liệu thực tế và ghi rõ giới hạn nhận diện. Chỉ tuyên bố tích hợp barrier vật lý nếu đã có phần cứng và kiểm thử thực tế.
+
+### 14.4. Tài liệu và bàn giao
+
+- [ ] Bảo đảm README, script SQL và cấu hình mẫu khớp với code đang commit.
+- [ ] Thêm file cấu hình mẫu không chứa secret thật (ví dụ `.env.example` nếu có dùng biến môi trường) và hướng dẫn các biến cần thiết.
+- [ ] Ghi rõ chức năng đã hoàn thành, chức năng còn là demo/prototype, yêu cầu phần cứng và các giới hạn đã biết.
+- [ ] Chuẩn bị sơ đồ kiến trúc, sơ đồ database, mô tả API và kịch bản demo nếu rubric của môn học yêu cầu.
+
+**Ưu tiên trước buổi bảo vệ:** (1) chạy được trên máy mới theo README, (2) xác minh tạo/đóng vé thực sự lưu trong SQL Server, (3) chuẩn bị kịch bản test có thể lặp lại, (4) kiểm tra bảo mật cấu hình, (5) đối chiếu từng tiêu chí trong rubric chính thức của thầy. Không coi checklist này là xác nhận đã hoàn thành; chỉ đánh dấu sau khi kiểm thử được.
