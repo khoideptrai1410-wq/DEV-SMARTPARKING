@@ -1,0 +1,4 @@
+# Optional add-on dependency for the isolated experiment.
+# Install the YOLOv12 implementation separately as described in
+# docs/YOLOV12_PADDLEOCR_EXPERIMENT.md.
+paddleocr>=3.0,<4.0
