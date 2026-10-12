@@ -39,13 +39,14 @@ git clone https://github.com/sunsmarterjie/yolov12.git ..\yolov12-upstream
 python -m pip install -e ..\yolov12-upstream
 ```
 
-Sau đó cài PaddleOCR:
+Cài PaddlePaddle CPU trước (phù hợp để tạo baseline trên Windows không dùng GPU), rồi cài PaddleOCR:
 
 ```powershell
+python -m pip install paddlepaddle==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
 python -m pip install -r requirements-yolov12-paddle.txt
 ```
 
-PaddleOCR có phụ thuộc framework/runtime riêng. Cách cài CPU/GPU phụ thuộc hệ điều hành và phiên bản CUDA; hãy dùng hướng dẫn chính thức phù hợp máy. Nếu pip báo xung đột dependency, không sửa môi trường chính — chỉ xử lý trong môi trường thử nghiệm riêng.
+Đây là lệnh tham khảo theo tài liệu PaddleOCR hiện tại; nếu Python/Windows của máy không có wheel tương thích, hãy chọn phiên bản theo trang cài đặt chính thức: https://www.paddlepaddle.org.cn/en/install/quick. Chỉ chuyển sang gói GPU sau khi xác định rõ GPU NVIDIA và phiên bản CUDA. Nếu pip báo xung đột dependency, không sửa môi trường chính — chỉ xử lý trong môi trường thử nghiệm riêng.
 
 ## Chuẩn bị model YOLOv12
 
