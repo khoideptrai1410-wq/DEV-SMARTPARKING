@@ -1,4 +1,4 @@
-# Smart Parking — Hướng dẫn dự án
+# Smart Parking — User Manual
 
 ## 1. Giới thiệu dự án
 
@@ -33,44 +33,27 @@ Package Python được khai báo trong `requirements.txt`; package frontend n�
 
 Cài các thành phần sau trên máy Windows:
 
-1. **Git**: https://git-scm.com/downloads
-2. **Python 3.x**: https://www.python.org/downloads/  
+1. **Python 3.x**: https://www.python.org/downloads/  
    Khi cài, chọn thêm Python vào PATH nếu trình cài đặt có tùy chọn này.
-3. **Node.js LTS**: https://nodejs.org/ (đi kèm npm).
-4. **.NET 10 SDK**: https://dotnet.microsoft.com/download/dotnet/10.0
-5. **Microsoft SQL Server**: https://www.microsoft.com/en-us/sql-server/sql-server-downloads
-6. **SQL Server Management Studio (SSMS)**: https://learn.microsoft.com/en-us/ssms/install/install
-7. **Chrome hoặc Edge**: dùng để mở giao diện web và cấp quyền webcam.
-
-**Khuyến nghị:** cài thêm VS Code để mở mã nguồn và sử dụng các terminal: https://code.visualstudio.com/
-
-**Tùy chọn:** nếu muốn chạy notebook ML thì dùng Jupyter Notebook hoặc tính năng notebook của VS Code. Nếu nhánh OCR dự phòng sử dụng `pytesseract`, cần cài chương trình Tesseract OCR riêng; cài package Python `pytesseract` không tự cài `tesseract.exe`.
+2. **Node.js LTS**: https://nodejs.org/ (đi kèm npm).
+3. **.NET 10 SDK**: https://dotnet.microsoft.com/download/dotnet/10.0
+4. **Microsoft SQL Server**: https://www.microsoft.com/en-us/sql-server/sql-server-downloads
+5. **SQL Server Management Studio (SSMS)**: https://learn.microsoft.com/en-us/ssms/install/install
 
 Sau khi cài, mở PowerShell mới và kiểm tra:
-
 ```powershell
-git --version
 python --version
-python -m pip --version
 node --version
 npm --version
 dotnet --list-sdks
 ```
-
 Trong danh sách SDK cần có phiên bản .NET 10.x.
 
 ## 4. Cách chạy dự án chi tiết — từng terminal và địa chỉ hoạt động
 
 ### Bước 1. Chuẩn bị mã nguồn và package
 
-Nếu chưa tải repo:
-
-```powershell
-git clone https://github.com/khoideptrai1410-wq/DEV-SMARTPARKING.git
-cd DEV-SMARTPARKING
-```
-
-Nếu đã có repo trên máy, mở terminal tại thư mục gốc dự án.
+Mở terminal tại thư mục gốc dự án.
 
 **Cài Python package** tại thư mục gốc:
 
@@ -102,16 +85,15 @@ cd ..
 
 Đảm bảo dịch vụ SQL Server đã khởi động. Mở SSMS và kết nối đến đúng SQL Server instance trên máy.
 
-Backend đọc connection string tại:
 
+Backend đọc connection string tại:
 `Backend/src/Smartparking.Api/appsettings.json`
 
-Giá trị mẫu:
+Giá trị mẫu ở file appsettings.json:
 
 ```json
 "DefaultConnection": "Server=localhost;Database=SmartParking;Trusted_Connection=True;TrustServerCertificate=True;"
 ```
-
 Nếu SQL Server trên máy dùng instance khác, điều chỉnh phần `Server=...` cho khớp cấu hình máy.
 
 Trong SSMS, mở và thực thi lần lượt:
@@ -136,12 +118,15 @@ Mở terminal mới tại thư mục gốc repository:
 
 ```powershell
 cd Backend
-dotnet run --launch-profile http --project src\Smartparking.Api\Smartparking.Api.csproj
+cd src
+cd Smartparking.Api
+
+dotnet run
 ```
 
 Giữ terminal này mở.
 
-- API: **http://localhost:5049**
+- API: **http://localhost:5049** -------> Thêm "/swagger" vào cuối đường dẫn
 - Swagger UI: **http://localhost:5049/swagger**
 
 ### Terminal 2 — Chạy Python Flask/OCR
@@ -170,7 +155,6 @@ Mở URL Vite hiển thị trong terminal, thường là:
 
 - Frontend React: **http://localhost:5173**
 
-Vite proxy các request qua `/backend-api` đến .NET và `/python-api` đến Flask theo cấu hình trong `frontend/vite.config.ts`.
 
 ### Bước 3. Đăng nhập và kiểm tra luồng hoạt động
 
@@ -186,16 +170,3 @@ Thực hiện theo thứ tự:
 5. Thử luồng xe ra, sau đó kiểm tra trạng thái vé và thời gian ra trong `dbo.Tickets`.
 
 Luồng dự kiến: **Camera → Python OCR → .NET API → SQL Server → React cập nhật giao diện**. Tích hợp phần mềm không đồng nghĩa với việc đã điều khiển barrier vật lý.
-
-## 5. Các phần còn thiếu cần hoàn thiện để đáp ứng yêu cầu “3 Project” của thầy
-
-Chưa có rubric/đề bài chính thức của thầy trong repository, nên danh sách này là các việc kỹ thuật cần đối chiếu với yêu cầu môn học, không khẳng định tất cả đều là tiêu chí bắt buộc.
-
-- [ ] **Kiểm thử toàn bộ luồng:** chạy thử camera/OCR → Flask → .NET API → SQL Server → React; xác minh tạo vé xe vào, cập nhật vé xe ra và các trường hợp không nhận diện được biển số.
-- [ ] **Đối chiếu database với code:** xác nhận `database/schema.sql`, cấu trúc `dbo.Tickets` và các câu truy vấn Dapper hoàn toàn khớp nhau.
-- [ ] **Kiểm tra các API:** xác minh các endpoint đăng nhập, lấy danh sách vé, tạo vé và kết thúc vé hoạt động với dữ liệu trong SQL Server.
-- [ ] **Kiểm tra camera/OCR thực tế:** thử trong các điều kiện ánh sáng và góc nhìn khác nhau, ghi nhận độ chính xác và giới hạn nhận diện.
-- [ ] **Hoàn thiện tài liệu theo đề bài:** bổ sung sơ đồ kiến trúc, sơ đồ cơ sở dữ liệu, mô tả API hoặc kịch bản demo nếu yêu cầu chính thức của thầy có các hạng mục này.
-- [ ] **Xác định rõ phạm vi phần cứng:** nếu đề bài yêu cầu barrier tự động thật, cần có phần cứng điều khiển và kiểm thử thực tế; chỉ có nhận diện camera chưa chứng minh được phần này đã hoàn thành.
-
-Để chốt chính xác mục 5, cần đối chiếu danh sách trên với đề bài hoặc rubric “3 Project” mà thầy đã giao.
