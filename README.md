@@ -1,172 +1,178 @@
-# Smart Parking — User Manual
+# PlateSight — Website nhận diện biển số xe
 
-## 1. Giới thiệu dự án
+PlateSight là website đơn giản có hai chế độ nhận diện biển số: camera trực tiếp và tải ảnh lên. Cả hai dùng chung pipeline AI: **YOLOv12 phát hiện vùng biển số** rồi **PaddleOCR đọc chuỗi ký tự**. Kết quả và thời gian nhận diện được lưu vào SQL Server.
 
-Smart Parking là hệ thống quản lý bãi đỗ xe thông minh, kết hợp giao diện web, API backend, xử lý camera/OCR và cơ sở dữ liệu SQL Server. Hệ thống hướng đến quy trình ghi nhận xe vào, nhận diện biển số, tạo vé và cập nhật vé khi xe ra.
+Các chức năng quản lý bãi xe, vé vào/ra và tính phí không còn thuộc giao diện chính mới. Mã nguồn cũ vẫn được giữ lại trong repository để tham khảo.
 
-Các thành phần chính:
-- **React**: giao diện đăng nhập, dashboard, danh sách vé và màn hình camera.
-- **.NET Web API**: xử lý API nghiệp vụ và truy cập dữ liệu.
-- **Python Flask/OCR**: nhận ảnh camera và nhận diện biển số.
-- **SQL Server**: lưu thông tin vé xe.
-- **Machine Learning**: có notebook và mã nguồn thử nghiệm trong repo.
+## 1. Bài toán học máy
 
-Hướng dẫn này dành cho Windows, PowerShell và VS Code. Các lệnh giả sử đã mở terminal tại thư mục gốc repository, nơi có `README.md`, `app/`, `Backend/`, `frontend/` và `requirements.txt`.
+### YOLOv12 — Object Detection
 
-## 2. Các công nghệ có trong dự án
+- Đầu vào: ảnh RGB hoặc khung hình camera.
+- Đầu ra: tọa độ bounding box, lớp license_plate và độ tin cậy phát hiện.
+- Bài toán: **phát hiện đối tượng**, không phải phân loại loại phương tiện.
 
-| Thành phần | Công nghệ | Vai trò |
-|---|---|---|
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS | Giao diện web |
-| Backend | .NET 10, ASP.NET Core Web API | Cung cấp API nghiệp vụ |
-| Truy cập dữ liệu | Dapper, Microsoft.Data.SqlClient | Truy vấn SQL Server |
-| Xác thực API | JWT Bearer Authentication | Xác thực người dùng và API |
-| Tài liệu API | Swagger / OpenAPI | Xem và thử API |
-| Camera/OCR | Python, Flask, OpenCV, RapidOCR, ONNX Runtime, pytesseract/Tesseract | Nhận ảnh và nhận diện biển số |
-| Dữ liệu/ML | NumPy, Pandas, scikit-learn, Matplotlib, Seaborn, Joblib, XGBoost, Pillow | Xử lý dữ liệu và thử nghiệm mô hình |
-| Database | Microsoft SQL Server | Lưu thông tin vé |
-| Công cụ phát triển | Git, VS Code, SSMS | Quản lý mã nguồn, viết code và quản lý database |
+YOLOv12 cần checkpoint đã được huấn luyện/tinh chỉnh trên dữ liệu biển số. Checkpoint COCO nguyên bản yolo12n.pt không được huấn luyện để phát hiện biển số xe.
 
-Package Python được khai báo trong `requirements.txt`; package frontend nằm trong `frontend/package.json`; package .NET nằm trong các file `.csproj` của `Backend/`.
+### PaddleOCR — Text Recognition
 
-## 3. Các công nghệ cần tải trước khi chạy dự án
+- Đầu vào: vùng ảnh biển số được cắt theo bounding box YOLO.
+- Đầu ra: chuỗi ký tự cùng độ tin cậy OCR.
+- Bài toán: **nhận dạng văn bản trong ảnh**.
 
-Cài các thành phần sau trên máy Windows:
+Nói ngắn gọn khi thuyết trình: YOLOv12 trả lời “biển số nằm ở đâu?”, PaddleOCR trả lời “biển số ghi gì?”.
 
-1. **Python 3.x**: https://www.python.org/downloads/  
-   Khi cài, chọn thêm Python vào PATH nếu trình cài đặt có tùy chọn này.
-2. **Node.js LTS**: https://nodejs.org/ (đi kèm npm).
-3. **.NET 10 SDK**: https://dotnet.microsoft.com/download/dotnet/10.0
-4. **Microsoft SQL Server**: https://www.microsoft.com/en-us/sql-server/sql-server-downloads
-5. **SQL Server Management Studio (SSMS)**: https://learn.microsoft.com/en-us/ssms/install/install
+## 2. Kiến trúc
 
-Sau khi cài, mở PowerShell mới và kiểm tra:
-```powershell
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS.
+- **AI service:** Python, Flask, Ultralytics YOLOv12, PaddleOCR, OpenCV.
+- **Backend:** ASP.NET Core Web API trên .NET 10, Dapper.
+- **Database:** Microsoft SQL Server; sử dụng SSMS để tạo bảng và xem dữ liệu.
+
+Camera và upload đều gọi /recognize của cùng AI service. Frontend hiển thị kết quả nhận diện và gửi biển số sang .NET API để lưu lịch sử. Camera quét khung hình định kỳ và chỉ lưu một lần khi biển số ổn định qua nhiều khung hình, nhằm hạn chế bản ghi trùng lặp.
+
+## 3. Cấu trúc liên quan
+
+- **frontend/** — giao diện hai chế độ camera/upload và lịch sử.
+- **ai_service/app.py** — Flask API cho YOLOv12 + PaddleOCR.
+- **ai_service/train_yolo12.py** — script tinh chỉnh YOLOv12 trên bộ dữ liệu đã gán nhãn.
+- **Backend/src/Smartparking.Api/Controllers/RecognitionsController.cs** — API đọc/ghi lịch sử.
+- **database/license_plate_recognition.sql** — tạo bảng lịch sử trong SQL Server.
+- **models/vision/** — vị trí đặt checkpoint YOLOv12 cục bộ.
+
+Mã nguồn camera/OCR và nghiệp vụ bãi xe cũ không bị xóa; giao diện mới không còn phụ thuộc vào các chức năng vé xe.
+
+## 4. Chuẩn bị môi trường Windows
+
+Cần cài Python 3.11 x64 (khuyến nghị), Node.js LTS, .NET 10 SDK, SQL Server và SSMS.
+
+Kiểm tra phiên bản:
+
+~~~powershell
 python --version
 node --version
 npm --version
 dotnet --list-sdks
-```
-Trong danh sách SDK cần có phiên bản .NET 10.x.
+~~~
 
-## 4. Cách chạy dự án chi tiết — từng terminal và địa chỉ hoạt động
+### Cài Python
 
-### Bước 1. Chuẩn bị mã nguồn và package
+Tại thư mục gốc repository:
 
-Mở terminal tại thư mục gốc dự án.
-
-**Cài Python package** tại thư mục gốc:
-
-```powershell
+~~~powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
+~~~
+
+Cài PaddlePaddle CPU theo hướng dẫn chính thức cho hệ điều hành của máy. Với môi trường CPU tương thích, lệnh cài thường dùng là:
+
+~~~powershell
+python -m pip install paddlepaddle==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
 python -m pip install -r requirements.txt
-```
+~~~
 
-**Cài package frontend:**
+Nếu máy cần GPU, phải cài đúng bản PaddlePaddle/PyTorch tương thích phần cứng và CUDA; không dùng lệnh CPU ở trên.
 
-```powershell
+### Cấu hình trọng số YOLOv12
+
+Đặt checkpoint **đã được huấn luyện riêng cho lớp license_plate** tại:
+
+**models/vision/yolo12n_plate.pt**
+
+Nếu đặt ở chỗ khác, thiết lập biến môi trường PowerShell:
+
+~~~powershell
+$env:LICENSE_PLATE_MODEL_PATH = "D:\models\yolo12n_plate.pt"
+~~~
+
+Hướng dẫn cấu trúc dữ liệu và huấn luyện nằm trong models/vision/README.md. Repo không kèm checkpoint đã huấn luyện; vì vậy AI service sẽ báo chưa sẵn sàng cho đến khi có trọng số hợp lệ.
+
+### Cài Frontend
+
+~~~powershell
 cd frontend
 npm install
+npm run build
 cd ..
-```
+~~~
 
-**Khôi phục và build Backend:**
+### Khôi phục và build Backend
 
-```powershell
+~~~powershell
 cd Backend
 dotnet restore
 dotnet build
 cd ..
-```
+~~~
 
-### Bước 2. Chuẩn bị SQL Server
+## 5. Tạo bảng trong SQL Server bằng SSMS
 
-Đảm bảo dịch vụ SQL Server đã khởi động. Mở SSMS và kết nối đến đúng SQL Server instance trên máy.
+1. Mở SSMS và kết nối đến SQL Server instance đang chạy trên máy.
+2. Mở file database/license_plate_recognition.sql.
+3. Thực thi toàn bộ script.
+4. Kiểm tra bảng SmartParking.dbo.RecognitionHistory.
 
+Script chỉ tạo bảng RecognitionHistory và chỉ mục nếu chưa có; bảng vé Tickets cũ được giữ nguyên. Connection string .NET nằm trong Backend/src/Smartparking.Api/appsettings.json; hãy chỉnh Server=... nếu SQL Server dùng instance khác.
 
-Backend đọc connection string tại:
-`Backend/src/Smartparking.Api/appsettings.json`
+## 6. Chạy ứng dụng
 
-Giá trị mẫu ở file appsettings.json:
+Mở ba terminal độc lập tại thư mục gốc repository.
 
-```json
-"DefaultConnection": "Server=localhost;Database=SmartParking;Trusted_Connection=True;TrustServerCertificate=True;"
-```
-Nếu SQL Server trên máy dùng instance khác, điều chỉnh phần `Server=...` cho khớp cấu hình máy.
+### Terminal 1 — AI service
 
-Trong SSMS, mở và thực thi lần lượt:
-1. `database/schema.sql` để tạo database/bảng theo script.
-2. `database/seed.sql` để thêm vé demo.
-
-Có thể kiểm tra dữ liệu bằng:
-
-```sql
-USE SmartParking;
-GO
-SELECT TOP 20 *
-FROM dbo.Tickets
-ORDER BY TicketId DESC;
-```
-
-SQL Server chạy như một dịch vụ nền nên không cần giữ một terminal riêng cho SQL Server. SSMS dùng để cấu hình, chạy script và kiểm tra dữ liệu.
-
-### Terminal 1 — Chạy Backend .NET API
-
-Mở terminal mới tại thư mục gốc repository:
-
-```powershell
-cd Backend
-cd src
-cd Smartparking.Api
-
-dotnet run
-```
-
-Giữ terminal này mở.
-
-- API: **http://localhost:5049** -------> Thêm "/swagger" vào cuối đường dẫn
-- Swagger UI: **http://localhost:5049/swagger**
-
-### Terminal 2 — Chạy Python Flask/OCR
-
-Mở terminal mới tại thư mục gốc repository:
-
-```powershell
+~~~powershell
 .\.venv\Scripts\Activate.ps1
-python app/app.py
-```
+python ai_service/app.py
+~~~
 
-Giữ terminal này mở.
+AI service chạy tại http://127.0.0.1:5001. Kiểm tra trạng thái mô hình bằng cách mở http://127.0.0.1:5001/health. Nếu báo thiếu checkpoint, hãy đặt đúng file trọng số trước khi kiểm thử nhận diện.
 
-- Python Flask API: **http://127.0.0.1:5000**
+### Terminal 2 — .NET Backend
 
-### Terminal 3 — Chạy giao diện React
+~~~powershell
+cd Backend
+dotnet run --project src/Smartparking.Api/Smartparking.Api.csproj
+~~~
 
-Mở terminal mới tại thư mục gốc repository:
+API đọc/ghi lịch sử nằm tại http://localhost:5049/api/recognitions nếu profile chạy HTTP ở cổng 5049. Swagger có tại /swagger trong môi trường Development.
 
-```powershell
+### Terminal 3 — Frontend
+
+~~~powershell
 cd frontend
 npm run dev
-```
+~~~
 
-Mở URL Vite hiển thị trong terminal, thường là:
+Mở địa chỉ Vite hiển thị trong terminal, thường là http://localhost:5173.
 
-- Frontend React: **http://localhost:5173**
+Camera trình duyệt thường hoạt động trên localhost hoặc HTTPS. Nếu được hỏi, cấp quyền truy cập camera.
 
+## 7. API lưu lịch sử
 
-### Bước 3. Đăng nhập và kiểm tra luồng hoạt động
+- GET /api/recognitions?take=50 — lấy lịch sử gần nhất.
+- POST /api/recognitions — lưu biển số, nguồn, thời gian máy chủ và độ tin cậy.
 
-Tài khoản demo hiện được ghi trong mã nguồn:
-- Username: `admin`
-- Password: `123456`
+Ví dụ JSON POST:
 
-Thực hiện theo thứ tự:
-1. Mở **http://localhost:5173**.
-2. Đăng nhập và xem dashboard/danh sách vé.
-3. Mở màn hình cổng vào hoặc cổng ra và cấp quyền sử dụng webcam.
-4. Thử nhận diện biển số và kiểm tra vé trong SQL Server.
-5. Thử luồng xe ra, sau đó kiểm tra trạng thái vé và thời gian ra trong `dbo.Tickets`.
+~~~json
+{
+  "plateText": "59B112345",
+  "sourceType": "Camera",
+  "detectionConfidence": 0.94,
+  "ocrConfidence": 0.91
+}
+~~~
 
-Luồng dự kiến: **Camera → Python OCR → .NET API → SQL Server → React cập nhật giao diện**. Tích hợp phần mềm không đồng nghĩa với việc đã điều khiển barrier vật lý.
+sourceType chỉ nhận Camera hoặc Upload. Thời gian được lưu bằng UTC trong RecognizedAt và hiển thị theo múi giờ trình duyệt.
+
+## 8. Ghi chú về độ tin cậy và thời gian thực
+
+- Camera được gửi lên AI theo khoảng thời gian định kỳ; tốc độ phụ thuộc CPU/GPU, kích thước ảnh và mô hình.
+- Độ tin cậy YOLO là độ tin cậy phát hiện vùng biển số; độ tin cậy OCR là độ tin cậy nhận dạng ký tự. Hai giá trị không phải là độ chính xác tổng thể của hệ thống.
+- Chỉ số hiệu năng cần được đo bằng bộ kiểm thử phù hợp; không coi mô hình là đủ chính xác chỉ vì đã trả về một chuỗi.
+- Với dữ liệu thực tế, cần kiểm thử điều kiện thiếu sáng, mờ, nghiêng, biển hai dòng và ảnh có nhiều xe.
+
+## 9. Lưu ý
+
+Không commit file trọng số .pt, dữ liệu cá nhân hoặc ảnh nhạy cảm vào repository công khai. Hãy dùng dữ liệu được phép sử dụng và gán nhãn rõ ràng để huấn luyện, đánh giá mô hình.
