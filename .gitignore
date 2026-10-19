@@ -3,16 +3,20 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Python virtual environment
+# Python virtual environment and local config
 venv/
 .venv/
 env/
 .env/
 
-# Model files
+# Model weights and local ML artifacts (do not push large checkpoints)
 *.pkl
+*.pt
+*.onnx
 models/regression/*.pkl
 models/classification/*.pkl
+runs/
+data/yolo_license_plate/
 
 # IDE
 .vscode/
@@ -21,6 +25,7 @@ models/classification/*.pkl
 # OS
 .DS_Store
 Thumbs.db
+
 # .NET build files
 Backend/**/bin/
 Backend/**/obj/
