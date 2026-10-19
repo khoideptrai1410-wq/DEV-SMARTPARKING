@@ -21,7 +21,7 @@ def main() -> None:
     args = parser.parse_args()
 
     model = YOLO(args.weights)
-    trained = model.train(
+    model.train(
         data=args.data,
         epochs=args.epochs,
         imgsz=args.imgsz,
@@ -30,7 +30,7 @@ def main() -> None:
         name="yolo12-license-plate",
         patience=20,
     )
-    best_model = Path(trained.save_dir) / "weights" / "best.pt"
+    best_model = Path(model.trainer.best)
     if not best_model.is_file():
         raise FileNotFoundError(f"Không tìm thấy trọng số tốt nhất tại {best_model}")
 
