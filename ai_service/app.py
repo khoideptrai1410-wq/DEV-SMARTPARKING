@@ -266,15 +266,21 @@ def _run_recognition(image: np.ndarray, source: str) -> dict[str, Any]:
 
 @app.get("/health")
 def health():
-    configured = MODEL_PATH.is_file()
+    try:
+        _get_yolo()
+        ready = True
+        message = "Đã tải được checkpoint YOLOv12 có lớp phát hiện biển số."
+    except Exception as exc:
+        ready = False
+        message = str(exc) or "Không thể tải checkpoint YOLOv12."
     return jsonify({
         "service": "license-plate-ai",
         "model": "YOLOv12 + PaddleOCR",
         "model_path": str(MODEL_PATH),
-        "model_configured": configured,
-        "ready": configured,
-        "message": "AI service đã tìm thấy file trọng số." if configured else "Thiếu trọng số YOLOv12 đã huấn luyện riêng cho biển số.",
-    }), (200 if configured else 503)
+        "model_configured": ready,
+        "ready": ready,
+        "message": message,
+    }), (200 if ready else 503)
 
 
 @app.post("/recognize")

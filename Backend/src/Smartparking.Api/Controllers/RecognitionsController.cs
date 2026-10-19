@@ -24,7 +24,7 @@ public sealed class RecognitionsController : ControllerBase
             SELECT TOP (@Limit)
                 RecognitionId,
                 PlateText,
-                RecognizedAt,
+                TODATETIMEOFFSET(RecognizedAt, '+00:00') AS RecognizedAt,
                 SourceType,
                 DetectionConfidence,
                 OcrConfidence
@@ -67,7 +67,7 @@ public sealed class RecognitionsController : ControllerBase
             OUTPUT
                 INSERTED.RecognitionId,
                 INSERTED.PlateText,
-                INSERTED.RecognizedAt,
+                TODATETIMEOFFSET(INSERTED.RecognizedAt, '+00:00') AS RecognizedAt,
                 INSERTED.SourceType,
                 INSERTED.DetectionConfidence,
                 INSERTED.OcrConfidence
@@ -103,7 +103,7 @@ public sealed class RecognitionRecord
 {
     public long RecognitionId { get; set; }
     public string PlateText { get; set; } = string.Empty;
-    public DateTime RecognizedAt { get; set; }
+    public DateTimeOffset RecognizedAt { get; set; }
     public string SourceType { get; set; } = string.Empty;
     public double? DetectionConfidence { get; set; }
     public double? OcrConfidence { get; set; }
